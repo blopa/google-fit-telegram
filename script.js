@@ -1,10 +1,24 @@
 require('dotenv').config();
 const nodeFetch = require('node-fetch');
+const { google } = require('googleapis');
+const scopes = require('./scopes');
+
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
 
 async function getWeightData() {
+    // Authenticate and authorize the client
+    const auth = await google.auth.fromJSON({
+        type: process.env.TOKEN_TYPE,
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.CLIENT_SECRET,
+        refresh_token: process.env.REFRESH_TOKEN,
+    });
+
+    auth.scopes = scopes;
+    const { token: accessToken } = await auth.getAccessToken();
+
     // Get the end and start time for the last 30 days
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -32,7 +46,7 @@ async function getWeightData() {
         // Construct the headers of the request
         const headers = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`
+            'Authorization': `Bearer ${accessToken}`
         };
 
         try {
@@ -50,7 +64,7 @@ async function getWeightData() {
                     let totalWeight = 0;
                     let count = 0;
 
-                    console.log(JSON.stringify(data));
+                    // console.log(JSON.stringify(data));
                     data.bucket.forEach(({ dataset, endTimeMillis }) => {
                         dataset.forEach((dataset) => {
                             dataset.point.forEach((point) => {
@@ -58,9 +72,7 @@ async function getWeightData() {
                                     totalWeight += point.value[0].fpVal;
                                     count++;
 
-                                    const date = new Date(endTimeMillis).toLocaleDateString('en-gb');
-                                    console.log(endTimeMillis, date);
-                                    process.exit(1);
+                                    const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
                                     weightByDay[date] = point.value[0].fpVal;
                                 }
                             });
@@ -96,7 +108,7 @@ async function getWeightData() {
                             count++;
                             totalCalories += totalDailyCalories;
 
-                            const date = new Date(endTimeMillis).toLocaleDateString('en-UK');
+                            const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-UK');
                             caloriesByDay[date] = totalDailyCalories;
                         }
                     });
