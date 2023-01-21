@@ -15,25 +15,23 @@ async function getDataFromGoogleFit() {
     // await auth.authorize();
 
     // Get the dataSourceIds
-    const dataSources = await fit.users.dataSources.list({ auth, userId: 'me' });
+    // const dataSources = await fit.users.dataSources.list({ auth, userId: 'me' });
     // console.log(dataSources.data.dataSource);return;
-    for (const dataSource of dataSources.data.dataSource) {
-        if (dataSource.dataStreamId.includes('weight')) {
-            const res = await fit.users.dataSources.datasets.get({
-                auth,
-                userId: 'me',
-                dataSourceId: dataSource.dataStreamId,
-                datasetId: '1579629957000-1674237957000',
-            });
-
-            console.log(res.data);
-        }
-    }
-    return;
+    // for (const dataSource of dataSources.data.dataSource) {
+    //     if (dataSource.dataStreamId.includes('weight')) {
+    //         const res = await fit.users.dataSources.datasets.get({
+    //             auth,
+    //             userId: 'me',
+    //             dataSourceId: dataSource.dataStreamId,
+    //             datasetId: '1579629957000-1674237957000',
+    //         });
+    //
+    //         console.log(res.data);
+    //     }
+    // }
     // const dataSourceId = dataSources.data.dataSource
     //     .filter(dataSource => dataSource.dataStreamId.includes('weight'));
     // console.log(dataSources.data.dataSource.length, dataSourceId.map(a => a.dataStreamId));
-    return;
 
     // console.log({dataSourceId});
     // return;
@@ -41,6 +39,35 @@ async function getDataFromGoogleFit() {
     // Get the end and start time for the last 30 days
     const endTime = new Date().getTime();
     const startTime = endTime - (30 * 24 * 60 * 60 * 1000);
+
+    const dataTypeName = 'com.google.nutrition';
+
+    // Define the buckets
+    const buckets = [{
+        durationMillis: 1000 * 60 * 60 * 24, // one day
+        dataset: [{
+            dataTypeName: dataTypeName,
+        }],
+    }];
+
+    // Get the nutrition data from Google Fit
+    const { data: nutritionData } = await fit.users.dataset.aggregate({
+        userId: 'me',
+        requestBody: {
+            // aggregateBy: buckets,
+            // startTimeMillis: startTime,
+            // endTimeMillis: endTime,
+            "aggregateBy": [
+                { "dataTypeName": "com.google.nutrition" }
+            ],
+            "endTimeMillis": 1674323980200,
+            "startTimeMillis": 1671731980200
+            },
+    });
+
+    // Print the nutrition data
+    console.log(nutritionData);
+    return;
 
     // Define the data types to be retrieved
     const dataTypeName1 = 'com.google.weight';
