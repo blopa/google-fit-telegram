@@ -1,14 +1,10 @@
 require('dotenv').config();
-const scopes = require('./scopes');
 const nodeFetch = require('node-fetch');
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
 
 async function getWeightData() {
-    // Replace with the appropriate access token
-    const access_token = process.env.ACCESS_TOKEN;
-
     // Get the end and start time for the last 30 days
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -17,6 +13,8 @@ async function getWeightData() {
     const endTime = yesterday.getTime();
     const startTime = endTime - (30 * 24 * 60 * 60 * 1000);
     const dataTypes = [WEIGHT, NUTRITION];
+    const weightByDay = {};
+    const caloriesByDay = {};
 
     for (const dataTypeName of dataTypes) {
         // Construct the body of the request
@@ -34,7 +32,7 @@ async function getWeightData() {
         // Construct the headers of the request
         const headers = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${access_token}`
+            'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`
         };
 
         try {
@@ -52,12 +50,18 @@ async function getWeightData() {
                     let totalWeight = 0;
                     let count = 0;
 
-                    // console.log(JSON.stringify(data));
-                    data.bucket.forEach((bucket) => {
-                        bucket.dataset.forEach((dataset) => {
+                    console.log(JSON.stringify(data));
+                    data.bucket.forEach(({ dataset, endTimeMillis }) => {
+                        dataset.forEach((dataset) => {
                             dataset.point.forEach((point) => {
                                 if (point.value[0].fpVal > 0) {
                                     totalWeight += point.value[0].fpVal;
+                                    count++;
+
+                                    const date = new Date(endTimeMillis).toLocaleDateString('en-gb');
+                                    console.log(endTimeMillis, date);
+                                    process.exit(1);
+                                    weightByDay[date] = point.value[0].fpVal;
                                 }
                             });
                         });
@@ -71,26 +75,29 @@ async function getWeightData() {
                 case NUTRITION: {
                     let totalCalories = 0;
                     let count = 0;
-                    let shouldCount = false;
 
                     // console.log(JSON.stringify(data));
-                    data.bucket.forEach((bucket) => {
-                        bucket.dataset.forEach((dataset) => {
+                    data.bucket.forEach(({ dataset, endTimeMillis }) => {
+                        let totalDailyCalories = 0;
+
+                        dataset.forEach((dataset) => {
                             dataset.point.forEach((point) => {
                                 point.value[0].mapVal.forEach(macro => {
                                     if (macro.key === "calories") {
                                         if (macro.value.fpVal > 0) {
-                                            totalCalories += macro.value.fpVal;
-                                            shouldCount = true;
+                                            totalDailyCalories += macro.value.fpVal;
                                         }
                                     }
                                 });
                             });
                         });
 
-                        if (shouldCount) {
+                        if (totalDailyCalories > 0) {
                             count++;
-                            shouldCount = false;
+                            totalCalories += totalDailyCalories;
+
+                            const date = new Date(endTimeMillis).toLocaleDateString('en-UK');
+                            caloriesByDay[date] = totalDailyCalories;
                         }
                     });
 
@@ -103,6 +110,8 @@ async function getWeightData() {
             console.error(err);
         }
     }
+
+    console.log({caloriesByDay, weightByDay});
 }
 
 getWeightData();

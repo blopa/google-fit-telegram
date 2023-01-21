@@ -1,20 +1,18 @@
-const { authenticate } = require('@google-cloud/local-auth');
-const path = require('path');
-const scopes = require('./scopes');
+const nodeFetch = require('node-fetch');
 
-const SCOPES = scopes;
+const getAccessToken = async () => {
+    try {
+        const response = await nodeFetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `grant_type=refresh_token&refresh_token=${process.env.REFRESH_TOKEN}&client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}`
+        });
 
-async function getRefreshToken() {
-    const client = await authenticate({
-        keyfilePath: path.join(process.cwd(), 'credentials.json'),
-        scopes: SCOPES,
-        expires_in: 0,
-    });
+        const data = await response.json();
+        console.log(data);
+    } catch (error) {
+        console.error(error);
+    }
+};
 
-    console.log(
-        client.credentials,
-        // client.credentials.refresh_token
-    );
-}
-
-getRefreshToken();
+getAccessToken();
