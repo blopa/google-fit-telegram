@@ -7,6 +7,11 @@ const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:agg
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
 
+function convertStringToDate(string) {
+    const [day, month, year] = string.split('/');
+    return new Date(+year, month - 1, +day);
+}
+
 async function getFitnesstData() {
     // Authenticate and authorize the client
     const auth = await google.auth.fromJSON({
@@ -27,8 +32,7 @@ async function getFitnesstData() {
     const endTime = yesterday.getTime();
     const startTime = endTime - (30 * 24 * 60 * 60 * 1000);
     const dataTypes = [WEIGHT, NUTRITION];
-    const weightByDay = {};
-    const caloriesByDay = {};
+    const aggregatedData = {};
 
     for (const dataTypeName of dataTypes) {
         // Construct the body of the request
@@ -73,7 +77,11 @@ async function getFitnesstData() {
                                     count++;
 
                                     const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
-                                    weightByDay[date] = point.value[0].fpVal;
+                                    if (!aggregatedData[date]) {
+                                        aggregatedData[date] = [];
+                                    }
+
+                                    aggregatedData[date].push(point.value[0].fpVal);
                                 }
                             });
                         });
@@ -109,7 +117,11 @@ async function getFitnesstData() {
                             totalCalories += totalDailyCalories;
 
                             const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
-                            caloriesByDay[date] = totalDailyCalories;
+                            if (!aggregatedData[date]) {
+                                aggregatedData[date] = [];
+                            }
+
+                            aggregatedData[date].push(totalDailyCalories);
                         }
                     });
 
@@ -123,7 +135,11 @@ async function getFitnesstData() {
         }
     }
 
-    console.log({ caloriesByDay, weightByDay });
+    const sortedData = Object.entries(aggregatedData)
+        .sort((a, b) => convertStringToDate(a[0]) - convertStringToDate(b[0]))
+        .map(([date, value]) => ({ date, value }));
+
+    console.log(sortedData);
 }
 
 getFitnesstData()
