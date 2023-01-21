@@ -1,117 +1,108 @@
 require('dotenv').config();
-const { google } = require('googleapis');
 const scopes = require('./scopes');
-const fit = google.fitness('v1');
+const nodeFetch = require('node-fetch');
+const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
+const WEIGHT = 'com.google.weight';
+const NUTRITION = 'com.google.nutrition';
 
-async function getDataFromGoogleFit() {
-    // Authenticate and authorize the client
-    const auth = await google.auth.fromJSON({
-        type: process.env.TOKEN_TYPE,
-        client_id: process.env.CLIENT_ID,
-        client_secret: process.env.CLIENT_SECRET,
-        refresh_token: process.env.REFRESH_TOKEN,
-    });
-    auth.scopes = scopes;
-    // await auth.authorize();
-
-    // Get the dataSourceIds
-    // const dataSources = await fit.users.dataSources.list({ auth, userId: 'me' });
-    // console.log(dataSources.data.dataSource);return;
-    // for (const dataSource of dataSources.data.dataSource) {
-    //     if (dataSource.dataStreamId.includes('weight')) {
-    //         const res = await fit.users.dataSources.datasets.get({
-    //             auth,
-    //             userId: 'me',
-    //             dataSourceId: dataSource.dataStreamId,
-    //             datasetId: '1579629957000-1674237957000',
-    //         });
-    //
-    //         console.log(res.data);
-    //     }
-    // }
-    // const dataSourceId = dataSources.data.dataSource
-    //     .filter(dataSource => dataSource.dataStreamId.includes('weight'));
-    // console.log(dataSources.data.dataSource.length, dataSourceId.map(a => a.dataStreamId));
-
-    // console.log({dataSourceId});
-    // return;
+async function getWeightData() {
+    // Replace with the appropriate access token
+    const access_token = process.env.ACCESS_TOKEN;
 
     // Get the end and start time for the last 30 days
-    const endTime = new Date().getTime();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(23, 59, 59);
+
+    const endTime = yesterday.getTime();
     const startTime = endTime - (30 * 24 * 60 * 60 * 1000);
+    const dataTypes = [WEIGHT, NUTRITION];
 
-    const dataTypeName = 'com.google.nutrition';
+    for (const dataTypeName of dataTypes) {
+        // Construct the body of the request
+        const body = JSON.stringify({
+            aggregateBy: [{
+                // dataTypeName: 'com.google.weight',
+                // dataTypeName: 'com.google.nutrition',
+                dataTypeName,
+            }],
+            bucketByTime: { durationMillis: 86400000 },
+            startTimeMillis: startTime,
+            endTimeMillis: endTime
+        });
 
-    // Define the buckets
-    const buckets = [{
-        durationMillis: 1000 * 60 * 60 * 24, // one day
-        dataset: [{
-            dataTypeName: dataTypeName,
-        }],
-    }];
+        // Construct the headers of the request
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${access_token}`
+        };
 
-    // Get the nutrition data from Google Fit
-    const { data: nutritionData } = await fit.users.dataset.aggregate({
-        userId: 'me',
-        requestBody: {
-            // aggregateBy: buckets,
-            // startTimeMillis: startTime,
-            // endTimeMillis: endTime,
-            "aggregateBy": [
-                { "dataTypeName": "com.google.nutrition" }
-            ],
-            "endTimeMillis": 1674323980200,
-            "startTimeMillis": 1671731980200
-            },
-    });
+        try {
+            // Make the request to the API
+            const response = await nodeFetch(BASE_URL, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            });
 
-    // Print the nutrition data
-    console.log(nutritionData);
-    return;
+            // Parse the response as JSON
+            const data = await response.json();
+            switch (dataTypeName) {
+                case WEIGHT: {
+                    let totalWeight = 0;
+                    let count = 0;
 
-    // Define the data types to be retrieved
-    const dataTypeName1 = 'com.google.weight';
-    const dataTypeName2 = 'com.google.body.fat.percentage';
-    const dataTypeName3 = 'com.google.calories.expended';
+                    // console.log(JSON.stringify(data));
+                    data.bucket.forEach((bucket) => {
+                        bucket.dataset.forEach((dataset) => {
+                            dataset.point.forEach((point) => {
+                                if (point.value[0].fpVal > 0) {
+                                    totalWeight += point.value[0].fpVal;
+                                }
+                            });
+                        });
+                    });
 
-    // Get the data from Google Fit
-    const res = await fit.users.dataSources.datasets.get({
-        auth,
-        userId: 'me',
-        // dataTypeName: 'com.google.weight.summary',
-        // dataSourceId: `derived:com.google.${dataTypeName1}:*`,
-        // dataSourceId: "derived:com.google.nutrition:com.google.android.gms:merged",
-        dataSourceId: "derived:com.google.weight:com.google.android.gms:merge_weight",
-        datasetId: `${startTime}-${endTime}`,
-    });
+                    const averageWeight = totalWeight / count;
+                    console.log("average weight: ", averageWeight);
+                    break;
+                }
 
-    const res2 = await fit.users.dataSources.datasets.get({
-        auth,
-        userId: 'me',
-        dataTypeName: dataTypeName2,
-        dataSourceId: `derived:com.google.${dataTypeName2}:*`,
-        datasetId: `${startTime}-${endTime}`,
-    });
+                case NUTRITION: {
+                    let totalCalories = 0;
+                    let count = 0;
+                    let shouldCount = false;
 
-    const res3 = await fit.users.dataSources.datasets.get({
-        auth,
-        userId: 'me',
-        dataTypeName: dataTypeName3,
-        dataSourceId: `derived:com.google.${dataTypeName3}:*`,
-        datasetId: `${startTime}-${endTime}`,
-    });
+                    // console.log(JSON.stringify(data));
+                    data.bucket.forEach((bucket) => {
+                        bucket.dataset.forEach((dataset) => {
+                            dataset.point.forEach((point) => {
+                                point.value[0].mapVal.forEach(macro => {
+                                    if (macro.key === "calories") {
+                                        if (macro.value.fpVal > 0) {
+                                            totalCalories += macro.value.fpVal;
+                                            shouldCount = true;
+                                        }
+                                    }
+                                });
+                            });
+                        });
 
-    // Get the data points from the response
-    const dataPoints1 = res.data.point;
-    const dataPoints2 = res2.data.point;
-    const dataPoints3 = res3.data.point;
+                        if (shouldCount) {
+                            count++;
+                            shouldCount = false;
+                        }
+                    });
 
-
-    // Print the data points
-    console.log(
-        res,
-        dataPoints1
-    );
+                    const averageCalories = totalCalories / count;
+                    console.log("average calories: ", averageCalories);
+                    break;
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
 }
 
-getDataFromGoogleFit();
+getWeightData();
