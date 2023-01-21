@@ -1,7 +1,8 @@
 const { authenticate } = require('@google-cloud/local-auth');
 const path = require('path');
+const scopes = require('./scopes');
 
-const SCOPES = ['https://www.googleapis.com/auth/fitness.activity.read'];
+const SCOPES = scopes;
 
 async function getRefreshToken() {
     const client = await authenticate({
@@ -9,7 +10,10 @@ async function getRefreshToken() {
         scopes: SCOPES
     });
 
-    console.log(client.credentials.refresh_token);
+    console.log(
+        // client.credentials,
+        client.credentials.refresh_token
+    );
 }
 
 getRefreshToken();
