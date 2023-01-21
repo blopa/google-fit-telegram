@@ -7,7 +7,7 @@ const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:agg
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
 
-async function getWeightData() {
+async function getFitnesstData() {
     // Authenticate and authorize the client
     const auth = await google.auth.fromJSON({
         type: process.env.TOKEN_TYPE,
@@ -108,7 +108,7 @@ async function getWeightData() {
                             count++;
                             totalCalories += totalDailyCalories;
 
-                            const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-UK');
+                            const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
                             caloriesByDay[date] = totalDailyCalories;
                         }
                     });
@@ -123,7 +123,9 @@ async function getWeightData() {
         }
     }
 
-    console.log({caloriesByDay, weightByDay});
+    console.log({ caloriesByDay, weightByDay });
 }
 
-getWeightData();
+getFitnesstData()
+    .then(() => null)
+    .catch(console.error);
