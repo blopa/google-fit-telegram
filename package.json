@@ -1,0 +1,27 @@
+{
+  "name": "google-fit-telegram",
+  "version": "0.0.1",
+  "description": "",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blopa/google-fit-telegram.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/blopa/google-fit-telegram/issues"
+  },
+  "homepage": "https://github.com/blopa/google-fit-telegram#readme",
+  "dependencies": {
+    "@google-cloud/local-auth": "^2.1.1",
+    "dotenv": "^16.0.3",
+    "googleapis": "^110.0.0"
+  },
+  "devDependencies": {
+    "npm-check-updates": "^16.6.2"
+  }
+}
