@@ -7,6 +7,7 @@ const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:agg
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
 const CALORIES_PER_KG = 7700;
+const NUMBER_OF_DAYS = 30;
 
 const dataTypes = {
     [WEIGHT]: {
@@ -52,13 +53,13 @@ async function getFitnesstData() {
     auth.scopes = scopes;
     const { token: accessToken } = await auth.getAccessToken();
 
-    // Get the end and start time for the last 30 days
+    // Get the end and start time for the last NUMBER_OF_DAYS days
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(23, 59, 59);
 
     const endTime = yesterday.getTime();
-    const startTime = endTime - (30 * 24 * 60 * 60 * 1000);
+    const startTime = endTime - (NUMBER_OF_DAYS * 24 * 60 * 60 * 1000);
 
     for (const dataTypeName of Object.keys(dataTypes)) {
         // Construct the body of the request
