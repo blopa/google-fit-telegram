@@ -156,11 +156,11 @@ async function getFitnesstData() {
     let firstOccurrence = null;
     let lastOccurrence = null;
     let totalCalories = 0;
-    let totalCaloriesCount = 0;
+    let totalCount = 0;
     newArray.forEach((datum) => {
         if (WEIGHT in datum.data && NUTRITION in datum.data) {
             totalCalories += datum.data[NUTRITION];
-            totalCaloriesCount++;
+            totalCount++;
 
             if (!firstOccurrence) {
                 firstOccurrence = datum;
@@ -170,14 +170,15 @@ async function getFitnesstData() {
         }
     });
 
-    const weightDifference = firstOccurrence.data[WEIGHT] - lastOccurrence.data[WEIGHT];
-    const tdee = (totalCalories - (CALORIES_PER_KG * weightDifference)) / totalCaloriesCount;
+    const weightDifference = lastOccurrence.data[WEIGHT] - firstOccurrence.data[WEIGHT];
+    const tdee = (totalCalories - (CALORIES_PER_KG * weightDifference)) / totalCount;
 
     const result = [
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
-        `Average Calories: ${(totalCalories / totalCaloriesCount).toFixed(2)}`,
-        `Weight Difference: ${weightDifference.toFixed(2)}`,
-        `TDEE: ${tdee.toFixed(2)}`,
+        `Days Range: ${totalCount}`,
+        `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
+        `Weight Difference: ${weightDifference > 0 ? '+' : null}${weightDifference.toFixed(2)} kg`,
+        `TDEE: ${tdee.toFixed(2)} kcal`,
     ].join('\n');
 
     // console.log(result);
