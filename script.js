@@ -6,6 +6,7 @@ const scopes = require('./scopes');
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
+const CALORIES_PER_KG = 7700;
 
 const dataTypes = {
     [WEIGHT]: {
@@ -29,7 +30,14 @@ function convertStringToDate(string) {
 
 async function getFitnesstData() {
     // Validate environment variables
-    if (!process.env.TOKEN_TYPE || !process.env.CLIENT_ID || !process.env.CLIENT_SECRET || !process.env.REFRESH_TOKEN) {
+    if (
+        !process.env.TOKEN_TYPE
+        || !process.env.CLIENT_ID
+        || !process.env.CLIENT_SECRET
+        || !process.env.REFRESH_TOKEN
+        || !process.env.TELEGRAM_BOT_ID
+        || !process.env.TELEGRAM_GROUP_ID
+    ) {
         throw new Error('Missing environment variables');
     }
 
@@ -56,8 +64,6 @@ async function getFitnesstData() {
         // Construct the body of the request
         const body = JSON.stringify({
             aggregateBy: [{
-                // dataTypeName: 'com.google.weight',
-                // dataTypeName: 'com.google.nutrition',
                 dataTypeName,
             }],
             bucketByTime: { durationMillis: 86400000 },
@@ -143,8 +149,49 @@ async function getFitnesstData() {
         };
     });
 
-    console.log(newArray);
+    // console.log(JSON.stringify(newArray));
     // console.log(dataTypes);
+
+    let firstOccurrence = null;
+    let lastOccurrence = null;
+    let totalCalories = 0;
+    let totalCaloriesCount = 0;
+    newArray.forEach((datum) => {
+        if (WEIGHT in datum.data && NUTRITION in datum.data) {
+            totalCalories += datum.data[NUTRITION];
+            totalCaloriesCount++;
+
+            if (!firstOccurrence) {
+                firstOccurrence = datum;
+            }
+
+            lastOccurrence = datum;
+        }
+    });
+
+    const weightDifference = firstOccurrence.data[WEIGHT] - lastOccurrence.data[WEIGHT];
+    const tdee = (totalCalories - (CALORIES_PER_KG * weightDifference)) / totalCaloriesCount;
+
+    const result = [
+        `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
+        `Average Calories: ${(totalCalories / totalCaloriesCount).toFixed(2)}`,
+        `Weight Difference: ${weightDifference.toFixed(2)}`,
+        `TDEE: ${tdee.toFixed(2)}`,
+    ].join('\n');
+
+    // console.log(result);
+
+    await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            text: result,
+            chat_id: process.env.TELEGRAM_GROUP_ID,
+            parse_mode: 'markdown',
+        }),
+    });
 }
 
 getFitnesstData()
