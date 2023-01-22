@@ -7,12 +7,32 @@ const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:agg
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
 
+const dataTypes = {
+    [WEIGHT]: {
+        average: 0,
+        total: 0,
+        count: 0,
+    },
+    [NUTRITION]: {
+        average: 0,
+        total: 0,
+        count: 0,
+    }
+};
+
+const aggregatedData = {};
+
 function convertStringToDate(string) {
     const [day, month, year] = string.split('/');
     return new Date(+year, month - 1, +day);
 }
 
 async function getFitnesstData() {
+    // Validate environment variables
+    if (!process.env.TOKEN_TYPE || !process.env.CLIENT_ID || !process.env.CLIENT_SECRET || !process.env.REFRESH_TOKEN) {
+        throw new Error('Missing environment variables');
+    }
+
     // Authenticate and authorize the client
     const auth = await google.auth.fromJSON({
         type: process.env.TOKEN_TYPE,
@@ -31,10 +51,8 @@ async function getFitnesstData() {
 
     const endTime = yesterday.getTime();
     const startTime = endTime - (30 * 24 * 60 * 60 * 1000);
-    const dataTypes = [WEIGHT, NUTRITION];
-    const aggregatedData = {};
 
-    for (const dataTypeName of dataTypes) {
+    for (const dataTypeName of Object.keys(dataTypes)) {
         // Construct the body of the request
         const body = JSON.stringify({
             aggregateBy: [{
@@ -63,83 +81,70 @@ async function getFitnesstData() {
 
             // Parse the response as JSON
             const data = await response.json();
-            switch (dataTypeName) {
-                case WEIGHT: {
-                    let totalWeight = 0;
-                    let count = 0;
+            data.bucket.forEach(({ dataset, endTimeMillis }) => {
+                dataset.forEach((dataset) => {
+                    dataset.point.forEach((point) => {
+                        let value = 0;
 
-                    // console.log(JSON.stringify(data));
-                    data.bucket.forEach(({ dataset, endTimeMillis }) => {
-                        dataset.forEach((dataset) => {
-                            dataset.point.forEach((point) => {
-                                if (point.value[0].fpVal > 0) {
-                                    totalWeight += point.value[0].fpVal;
-                                    count++;
-
-                                    const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
-                                    if (!aggregatedData[date]) {
-                                        aggregatedData[date] = [];
-                                    }
-
-                                    aggregatedData[date].push(point.value[0].fpVal);
+                        if (dataTypeName === WEIGHT) {
+                            value = point.value[0].fpVal;
+                        } else if (dataTypeName === NUTRITION) {
+                            point.value[0].mapVal.forEach((macro) => {
+                                if (macro.key === 'calories') {
+                                    value = macro.value.fpVal;
                                 }
                             });
-                        });
-                    });
+                        }
 
-                    const averageWeight = totalWeight / count;
-                    console.log("average weight: ", averageWeight);
-                    break;
-                }
-
-                case NUTRITION: {
-                    let totalCalories = 0;
-                    let count = 0;
-
-                    // console.log(JSON.stringify(data));
-                    data.bucket.forEach(({ dataset, endTimeMillis }) => {
-                        let totalDailyCalories = 0;
-
-                        dataset.forEach((dataset) => {
-                            dataset.point.forEach((point) => {
-                                point.value[0].mapVal.forEach(macro => {
-                                    if (macro.key === "calories") {
-                                        if (macro.value.fpVal > 0) {
-                                            totalDailyCalories += macro.value.fpVal;
-                                        }
-                                    }
-                                });
-                            });
-                        });
-
-                        if (totalDailyCalories > 0) {
-                            count++;
-                            totalCalories += totalDailyCalories;
+                        if (value > 0) {
+                            dataTypes[dataTypeName].total += value;
+                            dataTypes[dataTypeName].count++;
 
                             const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
                             if (!aggregatedData[date]) {
-                                aggregatedData[date] = [];
+                                aggregatedData[date] = {};
                             }
 
-                            aggregatedData[date].push(totalDailyCalories);
+                            if (!aggregatedData[date][dataTypeName]) {
+                                aggregatedData[date][dataTypeName] = 0;
+
+                            }
+
+                            aggregatedData[date][dataTypeName] += value;
                         }
                     });
-
-                    const averageCalories = totalCalories / count;
-                    console.log("average calories: ", averageCalories);
-                    break;
-                }
-            }
-        } catch (err) {
-            console.error(err);
+                });
+            });
+        } catch (error) {
+            console.error(error);
         }
     }
 
-    const sortedData = Object.entries(aggregatedData)
-        .sort((a, b) => convertStringToDate(a[0]) - convertStringToDate(b[0]))
-        .map(([date, value]) => ({ date, value }));
+    // Print the average weight and calories
+    for (const dataTypeName in dataTypes) {
+        const { total, count } = dataTypes[dataTypeName];
+        dataTypes[dataTypeName].average = total / count;
+        // console.log(`Average ${dataTypeName}:`, dataTypes[dataTypeName].average);
+    }
 
-    console.log(sortedData);
+    // console.log(aggregatedData);
+
+    // Sort the dates
+    const sortedDates = Object.keys(aggregatedData).sort(
+        (a, b) => convertStringToDate(a) - convertStringToDate(b)
+    );
+    // console.log(sortedDates);
+
+    // Create a new array
+    const newArray = sortedDates.map((date) => {
+        return {
+            date,
+            data: aggregatedData[date],
+        };
+    });
+
+    console.log(newArray);
+    // console.log(dataTypes);
 }
 
 getFitnesstData()
