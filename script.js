@@ -3,23 +3,21 @@ const nodeFetch = require('node-fetch');
 const { google } = require('googleapis');
 const scopes = require('./scopes');
 
+// Constants
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
+
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
+
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
+
 const NUMBER_OF_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
-// TODO use this
 const MORNING = 'morning';
-const EVENING = 'evening';
 const NIGHT = 'night';
-const WEIGHT_MEASUREMENT_TIMES = [
-    MORNING,
-    EVENING,
-    NIGHT,
-];
+const WEIGHT_MEASURAMENT_TIME = process.env.WEIGHT_MEASURAMENT_TIME || MORNING;
 
 const dataTypes = {
     [NUTRITION]: {
@@ -145,13 +143,10 @@ async function getFitnesstData() {
         // console.log(`Average ${dataTypeName}:`, dataTypes[dataTypeName].average);
     }
 
-    // console.log(aggregatedData);
-
     // Sort the dates
     const sortedDates = Object.keys(aggregatedData).sort(
         (a, b) => convertStringToDate(a) - convertStringToDate(b)
     );
-    // console.log(sortedDates);
 
     // Create a new array
     const newArray = sortedDates.map((date) => {
@@ -159,28 +154,24 @@ async function getFitnesstData() {
             date,
             data: aggregatedData[date],
         };
-    });
+    }).filter((datum) => WEIGHT in datum.data && NUTRITION in datum.data);
 
-    // console.log(dataTypes);
-
-    let firstOccurrence = null;
-    let lastOccurrence = null;
+    let firstOccurrence = newArray.at(0);
+    let lastOccurrence = newArray.at(-1);
     let totalCalories = 0;
     let totalCount = 0;
+    const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
+    const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
     newArray.forEach((datum) => {
-        if (WEIGHT in datum.data && NUTRITION in datum.data) {
-            totalCalories += datum.data[NUTRITION];
-            totalCount++;
-
-            if (!firstOccurrence) {
-                firstOccurrence = datum;
-            }
-
-            lastOccurrence = datum;
+        if (isMorning && datum === lastOccurrence) {
+            return;
         }
+
+        totalCalories += datum.data[NUTRITION];
+        totalCount++;
     });
 
-    const weightDifference = lastOccurrence.data[WEIGHT] - firstOccurrence.data[WEIGHT];
+    const weightDifference = newArray.at(-1).data[WEIGHT] - newArray.at(isMorning ? 1 : 0).data[WEIGHT];
     const tdee = (totalCalories - (CALORIES_PER_KG_FAT * weightDifference)) / totalCount;
 
     const result = [
