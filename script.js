@@ -6,20 +6,32 @@ const scopes = require('./scopes');
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
-const CALORIES_PER_KG = 7700;
+const CALORIES_PER_KG_FAT = 7700;
+const CALORIES_PER_KG_MUSCLE = 5940;
 const NUMBER_OF_DAYS = 30;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// TODO use this
+const MORNING = 'morning';
+const EVENING = 'evening';
+const NIGHT = 'night';
+const WEIGHT_MEASUREMENT_TIMES = [
+    MORNING,
+    EVENING,
+    NIGHT,
+];
 
 const dataTypes = {
+    [NUTRITION]: {
+        average: 0,
+        total: 0,
+        count: 0,
+    },
     [WEIGHT]: {
         average: 0,
         total: 0,
         count: 0,
     },
-    [NUTRITION]: {
-        average: 0,
-        total: 0,
-        count: 0,
-    }
 };
 
 const aggregatedData = {};
@@ -54,12 +66,11 @@ async function getFitnesstData() {
     const { token: accessToken } = await auth.getAccessToken();
 
     // Get the end and start time for the last NUMBER_OF_DAYS days
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(23, 59, 59);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const endTime = yesterday.getTime();
-    const startTime = endTime - (NUMBER_OF_DAYS * 24 * 60 * 60 * 1000);
+    const endTime = today.getTime();
+    const startTime = endTime - (NUMBER_OF_DAYS * MILLISECONDS_PER_DAY);
 
     for (const dataTypeName of Object.keys(dataTypes)) {
         // Construct the body of the request
@@ -67,7 +78,7 @@ async function getFitnesstData() {
             aggregateBy: [{
                 dataTypeName,
             }],
-            bucketByTime: { durationMillis: 86400000 },
+            bucketByTime: { durationMillis: MILLISECONDS_PER_DAY },
             startTimeMillis: startTime,
             endTimeMillis: endTime
         });
@@ -88,7 +99,7 @@ async function getFitnesstData() {
 
             // Parse the response as JSON
             const data = await response.json();
-            data.bucket.forEach(({ dataset, endTimeMillis }) => {
+            data.bucket.forEach(({ dataset, startTimeMillis }) => {
                 dataset.forEach((dataset) => {
                     dataset.point.forEach((point) => {
                         let value = 0;
@@ -107,7 +118,7 @@ async function getFitnesstData() {
                             dataTypes[dataTypeName].total += value;
                             dataTypes[dataTypeName].count++;
 
-                            const date = new Date(parseInt(endTimeMillis)).toLocaleDateString('en-gb');
+                            const date = new Date(parseInt(startTimeMillis)).toLocaleDateString('en-gb');
                             if (!aggregatedData[date]) {
                                 aggregatedData[date] = {};
                             }
@@ -150,7 +161,6 @@ async function getFitnesstData() {
         };
     });
 
-    // console.log(JSON.stringify(newArray));
     // console.log(dataTypes);
 
     let firstOccurrence = null;
@@ -171,17 +181,18 @@ async function getFitnesstData() {
     });
 
     const weightDifference = lastOccurrence.data[WEIGHT] - firstOccurrence.data[WEIGHT];
-    const tdee = (totalCalories - (CALORIES_PER_KG * weightDifference)) / totalCount;
+    const tdee = (totalCalories - (CALORIES_PER_KG_FAT * weightDifference)) / totalCount;
 
     const result = [
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
         `Days Range: ${totalCount}`,
         `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
-        `Weight Difference: ${weightDifference > 0 ? '+' : null}${weightDifference.toFixed(2)} kg`,
+        `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg`,
         `TDEE: ${tdee.toFixed(2)} kcal`,
     ].join('\n');
 
-    // console.log(result);
+    console.info(`${result}\n\n`);
+    console.info(JSON.stringify(newArray));
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
