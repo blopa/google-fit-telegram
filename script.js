@@ -173,6 +173,7 @@ async function getFitnesstData() {
     let totalCount = 0;
     const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
     const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
+
     newArray.forEach((datum) => {
         if (isMorning && datum === lastOccurrence) {
             return;
@@ -182,28 +183,22 @@ async function getFitnesstData() {
         totalCount++;
     });
 
-    const weightDifference = newArray.at(-1).data[WEIGHT] - newArray.at(isMorning ? 1 : 0).data[WEIGHT];
-    const initialFat = (newArray.at(isMorning ? 1 : 0).data[FAT_PERCENTAGE] * newArray.at(isMorning ? 1 : 0).data[WEIGHT]) / 100;
-    const finalFat = (newArray.at(-1).data[FAT_PERCENTAGE] * newArray.at(-1).data[WEIGHT]) / 100;
+    const initialWeight = newArray.at(isMorning ? 1 : 0).data[WEIGHT];
+    const finalWeight = newArray.at(-1).data[WEIGHT];
+    const weightDifference = finalWeight - initialWeight;
 
-    const fatDifference = Math.abs(finalFat - initialFat);
+    const initialFat = (newArray.at(isMorning ? 1 : 0).data[FAT_PERCENTAGE] * initialWeight) / 100;
+    const finalFat = (newArray.at(-1).data[FAT_PERCENTAGE] * finalWeight) / 100;
+    const fatDifference = finalFat - initialFat;
     const fatCalories = CALORIES_PER_KG_FAT * fatDifference;
 
-    const muscleDifference = Math.abs(Math.abs(fatDifference) - Math.abs(weightDifference));
+    const initialNonFatMass = initialWeight - initialFat;
+    const finalNonFatMass = finalWeight - finalFat;
+    const muscleDifference = initialNonFatMass - finalNonFatMass;
     const muscleCalories = CALORIES_PER_KG_MUSCLE * muscleDifference;
 
-    const tdee = (totalCalories - (fatCalories + muscleCalories)) / totalCount;
-
-    dd({
-        weightDifference,
-        fatDifference,
-        muscleDifference,
-        initialFat,
-        finalFat,
-        fatCalories,
-        muscleCalories,
-        tdee,
-    });
+    const caloriesDifference = fatCalories + muscleCalories;
+    const tdee = (totalCalories + caloriesDifference) / totalCount;
 
     const result = [
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
@@ -213,8 +208,9 @@ async function getFitnesstData() {
         `TDEE: ${tdee.toFixed(2)} kcal`,
     ].join('\n');
 
-    console.info(`${result}\n\n`);
-    console.info(JSON.stringify(newArray));
+    console.info(`${result}\n`);
+    console.info(`${JSON.stringify(newArray)}\n`);
+    console.info(JSON.stringify({ caloriesDifference, totalCalories }));
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
