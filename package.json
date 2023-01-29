@@ -5,6 +5,7 @@
   "main": "script.js",
   "scripts": {
     "task": "node script.js",
+    "get-token": "node getToken.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -18,6 +19,7 @@
   },
   "homepage": "https://github.com/blopa/google-fit-telegram#readme",
   "dependencies": {
+    "@google-cloud/local-auth": "^2.1.1",
     "dotenv": "^16.0.3",
     "googleapis": "^110.0.0",
     "node-fetch": "~2.6.7"

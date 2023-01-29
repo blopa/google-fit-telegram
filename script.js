@@ -8,6 +8,7 @@ const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:agg
 
 const WEIGHT = 'com.google.weight';
 const NUTRITION = 'com.google.nutrition';
+const FAT_PERCENTAGE = 'com.google.body.fat.percentage';
 
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
@@ -20,6 +21,11 @@ const NIGHT = 'night';
 const WEIGHT_MEASURAMENT_TIME = process.env.WEIGHT_MEASURAMENT_TIME || MORNING;
 
 const dataTypes = {
+    [FAT_PERCENTAGE]: {
+        average: 0,
+        total: 0,
+        count: 0,
+    },
     [NUTRITION]: {
         average: 0,
         total: 0,
@@ -37,6 +43,11 @@ const aggregatedData = {};
 function convertStringToDate(string) {
     const [day, month, year] = string.split('/');
     return new Date(+year, month - 1, +day);
+}
+
+function dd(arg) {
+    console.log(JSON.stringify(arg));
+    process.exit(1);
 }
 
 async function getFitnesstData() {
@@ -102,7 +113,7 @@ async function getFitnesstData() {
                     dataset.point.forEach((point) => {
                         let value = 0;
 
-                        if (dataTypeName === WEIGHT) {
+                        if ([WEIGHT, FAT_PERCENTAGE].includes(dataTypeName)) {
                             value = point.value[0].fpVal;
                         } else if (dataTypeName === NUTRITION) {
                             point.value[0].mapVal.forEach((macro) => {
@@ -172,7 +183,27 @@ async function getFitnesstData() {
     });
 
     const weightDifference = newArray.at(-1).data[WEIGHT] - newArray.at(isMorning ? 1 : 0).data[WEIGHT];
-    const tdee = (totalCalories - (CALORIES_PER_KG_FAT * weightDifference)) / totalCount;
+    const initialFat = (newArray.at(isMorning ? 1 : 0).data[FAT_PERCENTAGE] * newArray.at(isMorning ? 1 : 0).data[WEIGHT]) / 100;
+    const finalFat = (newArray.at(-1).data[FAT_PERCENTAGE] * newArray.at(-1).data[WEIGHT]) / 100;
+
+    const fatDifference = Math.abs(finalFat - initialFat);
+    const fatCalories = CALORIES_PER_KG_FAT * fatDifference;
+
+    const muscleDifference = Math.abs(Math.abs(fatDifference) - Math.abs(weightDifference));
+    const muscleCalories = CALORIES_PER_KG_MUSCLE * muscleDifference;
+
+    const tdee = (totalCalories - (fatCalories + muscleCalories)) / totalCount;
+
+    dd({
+        weightDifference,
+        fatDifference,
+        muscleDifference,
+        initialFat,
+        finalFat,
+        fatCalories,
+        muscleCalories,
+        tdee,
+    });
 
     const result = [
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
