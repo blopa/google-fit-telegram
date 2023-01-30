@@ -6,9 +6,14 @@ const scopes = require('./scopes');
 // Constants
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
 
-const WEIGHT = 'com.google.weight';
-const NUTRITION = 'com.google.nutrition';
-const FAT_PERCENTAGE = 'com.google.body.fat.percentage';
+const WEIGHT_DATA_TYPE = 'com.google.weight';
+const FAT_PERCENTAGE_DATA_TYPE = 'com.google.body.fat.percentage';
+const NUTRITION_DATA_TYPE = 'com.google.nutrition';
+
+const WEIGHT = 'weight';
+const FAT_PERCENTAGE = 'fat_percentage';
+const CALORIES = 'calories';
+const PROTEIN = 'protein';
 
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
@@ -26,7 +31,12 @@ const dataTypes = {
         total: 0,
         count: 0,
     },
-    [NUTRITION]: {
+    [CALORIES]: {
+        average: 0,
+        total: 0,
+        count: 0,
+    },
+    [PROTEIN]: {
         average: 0,
         total: 0,
         count: 0,
@@ -81,7 +91,7 @@ async function getFitnesstData() {
     const endTime = today.getTime();
     const startTime = endTime - (NUMBER_OF_DAYS * MILLISECONDS_PER_DAY);
 
-    for (const dataTypeName of Object.keys(dataTypes)) {
+    for (const dataTypeName of [FAT_PERCENTAGE_DATA_TYPE, NUTRITION_DATA_TYPE, WEIGHT_DATA_TYPE]) {
         // Construct the body of the request
         const body = JSON.stringify({
             aggregateBy: [{
@@ -112,32 +122,53 @@ async function getFitnesstData() {
                 dataset.forEach((dataset) => {
                     dataset.point.forEach((point) => {
                         let value = 0;
+                        let protein = 0;
+                        let calories = 0;
+                        let type = '';
+                        const types = new Set();
 
-                        if ([WEIGHT, FAT_PERCENTAGE].includes(dataTypeName)) {
+                        if (dataTypeName === FAT_PERCENTAGE_DATA_TYPE) {
                             value = point.value[0].fpVal;
-                        } else if (dataTypeName === NUTRITION) {
+                            type = FAT_PERCENTAGE;
+                            types.add(type);
+                        } else if (dataTypeName === WEIGHT_DATA_TYPE) {
+                            value = point.value[0].fpVal;
+                            type = WEIGHT;
+                            types.add(type);
+                        } else if (dataTypeName === NUTRITION_DATA_TYPE) {
                             point.value[0].mapVal.forEach((macro) => {
-                                if (macro.key === 'calories') {
-                                    value = macro.value.fpVal;
+                                // possible types: ['fat.total', 'sodium', 'potassium', 'fat.unsaturated', 'fat.saturated', 'protein', 'carbs.total', 'cholesterol', 'calories', 'sugar', 'dietary_fiber']
+                                type = macro.key;
+
+                                if (macro.key === CALORIES) {
+                                    calories = macro.value.fpVal;
+                                    types.add(type);
+                                }
+                                if (macro.key === PROTEIN) {
+                                    protein = macro.value.fpVal;
+                                    types.add(type);
                                 }
                             });
                         }
 
-                        if (value > 0) {
-                            dataTypes[dataTypeName].total += value;
-                            dataTypes[dataTypeName].count++;
-
+                        if (value > 0 || protein > 0 || calories > 0) {
                             const date = new Date(parseInt(startTimeMillis)).toLocaleDateString('en-gb');
-                            if (!aggregatedData[date]) {
-                                aggregatedData[date] = {};
-                            }
+                            [...types].forEach((type) => {
+                                const val = (type === PROTEIN ? protein : (type === CALORIES ? calories : value))
+                                dataTypes[type].total += val;
+                                dataTypes[type].count++;
 
-                            if (!aggregatedData[date][dataTypeName]) {
-                                aggregatedData[date][dataTypeName] = 0;
+                                if (!aggregatedData[date]) {
+                                    aggregatedData[date] = {};
+                                }
 
-                            }
+                                if (!aggregatedData[date][type]) {
+                                    aggregatedData[date][type] = 0;
 
-                            aggregatedData[date][dataTypeName] += value;
+                                }
+
+                                aggregatedData[date][type] += val;
+                            });
                         }
                     });
                 });
@@ -165,11 +196,12 @@ async function getFitnesstData() {
             date,
             data: aggregatedData[date],
         };
-    }).filter((datum) => WEIGHT in datum.data && NUTRITION in datum.data);
+    }).filter((datum) => WEIGHT in datum.data && CALORIES in datum.data);
 
     let firstOccurrence = newArray.at(0);
     let lastOccurrence = newArray.at(-1);
     let totalCalories = 0;
+    let totalProtein = 0;
     let totalCount = 0;
     const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
     const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
@@ -179,7 +211,8 @@ async function getFitnesstData() {
             return;
         }
 
-        totalCalories += datum.data[NUTRITION];
+        totalCalories += datum.data[CALORIES];
+        totalProtein += datum.data[PROTEIN];
         totalCount++;
     });
 
@@ -204,6 +237,7 @@ async function getFitnesstData() {
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
         `Days Range: ${totalCount}`,
         `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
+        `Average Protein: ${(totalProtein / totalCount).toFixed(2)} g`,
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg`,
         `TDEE: ${tdee.toFixed(2)} kcal`,
     ].join('\n');
