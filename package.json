@@ -6,7 +6,7 @@
   "scripts": {
     "task": "node script.js",
     "get-token": "node getToken.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "bump": "ncu -u -t minor"
   },
   "repository": {
     "type": "git",

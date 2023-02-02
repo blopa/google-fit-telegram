@@ -198,13 +198,14 @@ async function getFitnesstData() {
         };
     }).filter((datum) => WEIGHT in datum.data && CALORIES in datum.data);
 
-    let firstOccurrence = newArray.at(0);
+    const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
+    const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
+
+    let firstOccurrence = newArray.at(isMorning ? 1 : 0);
     let lastOccurrence = newArray.at(-1);
     let totalCalories = 0;
     let totalProtein = 0;
     let totalCount = 0;
-    const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
-    const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
 
     newArray.forEach((datum) => {
         if (isMorning && datum === lastOccurrence) {
@@ -216,30 +217,34 @@ async function getFitnesstData() {
         totalCount++;
     });
 
-    const initialWeight = newArray.at(isMorning ? 1 : 0).data[WEIGHT];
-    const finalWeight = newArray.at(-1).data[WEIGHT];
+    const initialWeight = firstOccurrence.data[WEIGHT];
+    const finalWeight = lastOccurrence.data[WEIGHT];
     const weightDifference = finalWeight - initialWeight;
 
-    const initialFat = (newArray.at(isMorning ? 1 : 0).data[FAT_PERCENTAGE] * initialWeight) / 100;
-    const finalFat = (newArray.at(-1).data[FAT_PERCENTAGE] * finalWeight) / 100;
+    const initialFat = (firstOccurrence.data[FAT_PERCENTAGE] * initialWeight) / 100;
+    const finalFat = (lastOccurrence.data[FAT_PERCENTAGE] * finalWeight) / 100;
     const fatDifference = finalFat - initialFat;
+    const fatDifferencePercentage = lastOccurrence.data[FAT_PERCENTAGE] - firstOccurrence.data[FAT_PERCENTAGE];
     const fatCalories = CALORIES_PER_KG_FAT * fatDifference;
 
     const initialNonFatMass = initialWeight - initialFat;
     const finalNonFatMass = finalWeight - finalFat;
-    const muscleDifference = initialNonFatMass - finalNonFatMass;
+    const muscleDifference = finalNonFatMass - initialNonFatMass;
     const muscleCalories = CALORIES_PER_KG_MUSCLE * muscleDifference;
 
     const caloriesDifference = fatCalories + muscleCalories;
-    const tdee = (totalCalories + caloriesDifference) / totalCount;
+    const tdee = (totalCalories - caloriesDifference) / totalCount;
 
     const result = [
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
         `Days Range: ${totalCount}`,
+        `TDEE: ${tdee.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
         `Average Protein: ${(totalProtein / totalCount).toFixed(2)} g`,
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg`,
-        `TDEE: ${tdee.toFixed(2)} kcal`,
+        `Muscle Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference.toFixed(2)} kg`,
+        `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference.toFixed(2)} kg`,
+        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage.toFixed(2)}%`,
     ].join('\n');
 
     console.info(`${result}\n`);
