@@ -242,8 +242,8 @@ async function getFitnesstData() {
         `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
         `Average Protein: ${(totalProtein / totalCount).toFixed(2)} g`,
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg`,
-        `Muscle Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference.toFixed(2)} kg`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference.toFixed(2)} kg`,
+        `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference.toFixed(2)} kg`,
         `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage.toFixed(2)}%`,
     ].join('\n');
 
