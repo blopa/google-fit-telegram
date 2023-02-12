@@ -25,6 +25,6 @@
     "node-fetch": "~2.6.7"
   },
   "devDependencies": {
-    "npm-check-updates": "^16.6.3"
+    "npm-check-updat2es": "^16.7.4"
   }
 }

@@ -191,12 +191,22 @@ async function getFitnesstData() {
     );
 
     // Create a new array
-    const newArray = sortedDates.map((date) => {
+    const tempArray = sortedDates.map((date) => {
         return {
             date,
             data: aggregatedData[date],
         };
-    }).filter((datum) => WEIGHT in datum.data && CALORIES in datum.data);
+    }).filter((datum) => CALORIES in datum.data);
+
+    const firstIndex = tempArray.findIndex((datum) => WEIGHT in datum.data);
+    let lastIndex = -1;
+    tempArray.forEach((datum, index) => {
+        if (WEIGHT in datum.data && index > lastIndex) {
+            lastIndex = index;
+        }
+    });
+
+    const newArray = tempArray.slice(firstIndex, lastIndex + 1);
 
     const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
     const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
