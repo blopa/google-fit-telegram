@@ -21,10 +21,6 @@ const CALORIES_PER_KG_MUSCLE = 5940;
 const NUMBER_OF_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
-const MORNING = 'morning';
-const NIGHT = 'night';
-const WEIGHT_MEASURAMENT_TIME = process.env.WEIGHT_MEASURAMENT_TIME || MORNING;
-
 const dataTypes = {
     [FAT_PERCENTAGE]: {
         average: 0,
