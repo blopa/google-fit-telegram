@@ -198,7 +198,7 @@ async function getFitnesstData() {
         };
     }).filter((datum) => CALORIES in datum.data);
 
-    const firstIndex = tempArray.findIndex((datum) => WEIGHT in datum.data);
+    const firstIndex = tempArray.slice(1).findIndex((datum) => WEIGHT in datum.data);
     let lastIndex = -1;
     tempArray.forEach((datum, index) => {
         if (WEIGHT in datum.data && index > lastIndex) {
@@ -208,17 +208,14 @@ async function getFitnesstData() {
 
     const newArray = tempArray.slice(firstIndex, lastIndex + 1);
 
-    const isMorning = WEIGHT_MEASURAMENT_TIME === MORNING;
-    const isNight = WEIGHT_MEASURAMENT_TIME === NIGHT;
-
-    let firstOccurrence = newArray.at(isMorning ? 1 : 0);
+    let firstOccurrence = newArray.at(1); // index one because I weight in the morning
     let lastOccurrence = newArray.at(-1);
     let totalCalories = 0;
     let totalProtein = 0;
     let totalCount = 0;
 
     newArray.forEach((datum) => {
-        if (isMorning && datum === lastOccurrence) {
+        if (datum === lastOccurrence) {
             return;
         }
 
@@ -244,6 +241,20 @@ async function getFitnesstData() {
 
     const caloriesDifference = fatCalories + muscleCalories;
     const tdee = (totalCalories - caloriesDifference) / totalCount;
+    // dd({
+    //     firstOccurrence,
+    //     lastOccurrence,
+    //     initialWeight,
+    //     finalWeight,
+    //     weightDifference,
+    //     initialFat,
+    //     finalFat,
+    //     tdee,
+    //     caloriesDifference,
+    //     muscleCalories,
+    //     muscleDifference,
+    //     fatDifference,
+    // });
 
     const result = [
         `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
