@@ -258,10 +258,10 @@ async function getFitnesstData() {
         `TDEE: ${tdee.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
         `Average Protein: ${(totalProtein / totalCount).toFixed(2)} g`,
-        `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg`,
+        `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg (${initialWeight.toFixed(2)} -> ${finalWeight.toFixed(2)})`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference.toFixed(2)} kg`,
         `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference.toFixed(2)} kg`,
-        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage.toFixed(2)}%`,
+        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage.toFixed(2)}%  (${firstOccurrence.data[FAT_PERCENTAGE].toFixed(2)} -> ${lastOccurrence.data[FAT_PERCENTAGE].toFixed(2)})`,
     ].join('\n');
 
     console.info(`${result}\n`);
