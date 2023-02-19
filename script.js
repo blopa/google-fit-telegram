@@ -2,6 +2,9 @@ require('dotenv').config();
 const nodeFetch = require('node-fetch');
 const { google } = require('googleapis');
 const scopes = require('./scopes');
+// const { writeFileSync } = require('fs');
+// const path = require('path');
+
 
 // Constants
 const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
@@ -20,31 +23,6 @@ const CALORIES_PER_KG_MUSCLE = 5940;
 
 const NUMBER_OF_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-
-const dataTypes = {
-    [FAT_PERCENTAGE]: {
-        average: 0,
-        total: 0,
-        count: 0,
-    },
-    [CALORIES]: {
-        average: 0,
-        total: 0,
-        count: 0,
-    },
-    [PROTEIN]: {
-        average: 0,
-        total: 0,
-        count: 0,
-    },
-    [WEIGHT]: {
-        average: 0,
-        total: 0,
-        count: 0,
-    },
-};
-
-const aggregatedData = {};
 
 function convertStringToDate(string) {
     const [day, month, year] = string.split('/');
@@ -87,6 +65,30 @@ async function getFitnesstData() {
     const endTime = today.getTime();
     const startTime = endTime - (NUMBER_OF_DAYS * MILLISECONDS_PER_DAY);
 
+    const aggregatedData = {};
+    const dataTypes = {
+        [FAT_PERCENTAGE]: {
+            average: 0,
+            total: 0,
+            count: 0,
+        },
+        [CALORIES]: {
+            average: 0,
+            total: 0,
+            count: 0,
+        },
+        [PROTEIN]: {
+            average: 0,
+            total: 0,
+            count: 0,
+        },
+        [WEIGHT]: {
+            average: 0,
+            total: 0,
+            count: 0,
+        },
+    };
+
     for (const dataTypeName of [FAT_PERCENTAGE_DATA_TYPE, NUTRITION_DATA_TYPE, WEIGHT_DATA_TYPE]) {
         // Construct the body of the request
         const body = JSON.stringify({
@@ -114,6 +116,8 @@ async function getFitnesstData() {
 
             // Parse the response as JSON
             const data = await response.json();
+            // writeFileSync(path.resolve('output', `${dataTypeName}.json`), JSON.stringify(data));
+
             data.bucket.forEach(({ dataset, startTimeMillis }) => {
                 dataset.forEach((dataset) => {
                     dataset.point.forEach((point) => {
