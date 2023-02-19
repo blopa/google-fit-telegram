@@ -104,7 +104,7 @@ dist
 .tern-port
 
 credentials.json
-sample.json
+output/
 
 # IDE
 .idea
