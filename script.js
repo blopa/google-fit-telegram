@@ -21,7 +21,7 @@ const PROTEIN = 'protein';
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
 
-const NUMBER_OF_DAYS = 30;
+const NUMBER_OF_DAYS = 50;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function convertStringToDate(string) {
