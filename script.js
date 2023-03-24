@@ -17,6 +17,8 @@ const WEIGHT = 'weight';
 const FAT_PERCENTAGE = 'fat_percentage';
 const CALORIES = 'calories';
 const PROTEIN = 'protein';
+const CARBS = 'carbs.total';
+const FAT = 'fat.total';
 
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
@@ -82,6 +84,16 @@ async function getFitnesstData() {
             total: 0,
             count: 0,
         },
+        [CARBS]: {
+            average: 0,
+            total: 0,
+            count: 0,
+        },
+        [FAT]: {
+            average: 0,
+            total: 0,
+            count: 0,
+        },
         [WEIGHT]: {
             average: 0,
             total: 0,
@@ -123,6 +135,8 @@ async function getFitnesstData() {
                     dataset.point.forEach((point) => {
                         let value = 0;
                         let protein = 0;
+                        let carbs = 0;
+                        let fat = 0;
                         let calories = 0;
                         let type = '';
                         const types = new Set();
@@ -144,17 +158,35 @@ async function getFitnesstData() {
                                     calories = macro.value.fpVal;
                                     types.add(type);
                                 }
+
                                 if (macro.key === PROTEIN) {
                                     protein = macro.value.fpVal;
+                                    types.add(type);
+                                }
+
+                                if (macro.key === CARBS) {
+                                    carbs = macro.value.fpVal;
+                                    types.add(type);
+                                }
+
+                                if (macro.key === FAT) {
+                                    fat = macro.value.fpVal;
                                     types.add(type);
                                 }
                             });
                         }
 
-                        if (value > 0 || protein > 0 || calories > 0) {
+                        if (value > 0 || calories > 0 || protein > 0 || carbs > 0 || fat > 0) {
                             const date = new Date(parseInt(startTimeMillis)).toLocaleDateString('en-gb');
                             [...types].forEach((type) => {
-                                const val = (type === PROTEIN ? protein : (type === CALORIES ? calories : value))
+                                const types = {
+                                    [PROTEIN]: protein,
+                                    [CALORIES]: calories,
+                                    [CARBS]: carbs,
+                                    [FAT]: fat,
+                                };
+
+                                const val = types[type] ?? value;
                                 dataTypes[type].total += val;
                                 dataTypes[type].count++;
 
@@ -212,6 +244,8 @@ async function getFitnesstData() {
     let lastOccurrence = newArray.at(-1);
     let totalCalories = 0;
     let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
     let totalCount = 0;
 
     newArray.forEach((datum) => {
@@ -221,6 +255,8 @@ async function getFitnesstData() {
 
         totalCalories += datum.data[CALORIES];
         totalProtein += datum.data[PROTEIN];
+        totalCarbs += datum.data[CARBS];
+        totalFat += datum.data[FAT];
         totalCount++;
     });
 
@@ -262,6 +298,8 @@ async function getFitnesstData() {
         `TDEE: ${tdee.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
         `Average Protein: ${(totalProtein / totalCount).toFixed(2)} g`,
+        `Average Carbs: ${(totalCarbs / totalCount).toFixed(2)} g`,
+        `Average Fat: ${(totalFat / totalCount).toFixed(2)} g`,
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg (${initialWeight.toFixed(2)} -> ${finalWeight.toFixed(2)})`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference.toFixed(2)} kg`,
         `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference.toFixed(2)} kg`,
