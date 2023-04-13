@@ -21,10 +21,10 @@
   "dependencies": {
     "@google-cloud/local-auth": "^2.1.1",
     "dotenv": "^16.0.3",
-    "googleapis": "^114.0.0",
+    "googleapis": "^117.0.0",
     "node-fetch": "~2.6.7"
   },
   "devDependencies": {
-    "npm-check-updates": "^16.8.0"
+    "npm-check-updates": "^16.10.8"
   }
 }
