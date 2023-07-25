@@ -217,6 +217,7 @@ const fetchData = async () => {
     // writeFileSync('output/google_fit_data.json', JSON.stringify(agragatedData, null, 2));
     const text = calculateStatistics(agragatedData);
     console.log(text);
+    console.log(agragatedData);
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
