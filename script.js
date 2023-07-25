@@ -212,7 +212,7 @@ const fetchData = async () => {
         const dateA = parseDate(a.date);
         const dateB = parseDate(b.date);
         return dateA - dateB;
-    });
+    }).filter((data) => data.calories > 0);
 
     // writeFileSync('output/google_fit_data.json', JSON.stringify(agragatedData, null, 2));
     const text = calculateStatistics(agragatedData);
