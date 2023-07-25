@@ -1,55 +1,175 @@
 require('dotenv').config();
-const nodeFetch = require('node-fetch');
 const { google } = require('googleapis');
-const scopes = require('./scopes');
 // const { writeFileSync } = require('fs');
 // const path = require('path');
+const nodeFetch = require('node-fetch');
+const scopes = require('./scopes');
 
-
-// Constants
-const BASE_URL = 'https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate';
-
-const WEIGHT_DATA_TYPE = 'com.google.weight';
-const FAT_PERCENTAGE_DATA_TYPE = 'com.google.body.fat.percentage';
-const NUTRITION_DATA_TYPE = 'com.google.nutrition';
-
-const WEIGHT = 'weight';
-const FAT_PERCENTAGE = 'fat_percentage';
-const CALORIES = 'calories';
-const PROTEIN = 'protein';
-const CARBS = 'carbs.total';
-const FAT = 'fat.total';
-
+const fitness = google.fitness('v1');
+const NUMBER_OF_DAYS = 30;
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
 
-const NUMBER_OF_DAYS = 30;
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function convertStringToDate(string) {
-    const [day, month, year] = string.split('/');
-    return new Date(+year, month - 1, +day);
+function nanosToDateString(nanos) {
+    const milliseconds = parseInt(nanos) / 1000000;
+    return new Date(milliseconds).toLocaleDateString("en-GB");
 }
 
-function dd(arg) {
-    console.log(JSON.stringify(arg));
-    process.exit(1);
+function extractBodyData(jsonArray, type) {
+    return jsonArray.point.map((dataPoint) => {
+        const date = nanosToDateString(dataPoint.startTimeNanos);
+        const data = dataPoint.value[0].fpVal;
+        return { date, [type]: data };
+    });
 }
 
-async function getFitnesstData() {
-    // Validate environment variables
-    if (
-        !process.env.TOKEN_TYPE
-        || !process.env.CLIENT_ID
-        || !process.env.CLIENT_SECRET
-        || !process.env.REFRESH_TOKEN
-        || !process.env.TELEGRAM_BOT_ID
-        || !process.env.TELEGRAM_GROUP_ID
-    ) {
-        throw new Error('Missing environment variables');
+function extractNutritionData(jsonData) {
+    const nutritionArray = [];
+
+    for (const dataPoint of jsonData.point) {
+        const date = nanosToDateString(dataPoint.startTimeNanos);
+        const nutritionValues = {};
+
+        for (const item of dataPoint.value[0].mapVal) {
+            nutritionValues[item.key] = item.value.fpVal;
+        }
+
+        nutritionArray.push({
+            date: date,
+            foodName: dataPoint.value[2].stringVal || "",
+            protein: nutritionValues["protein"] || 0,
+            fat: nutritionValues["fat.total"] || 0,
+            carbs: nutritionValues["carbs.total"] || 0,
+            calories: nutritionValues["calories"] || 0,
+            fiber: nutritionValues["dietary_fiber"] || 0,
+            sugar: nutritionValues["sugar"] || 0,
+        });
     }
 
-    // Authenticate and authorize the client
+    return nutritionArray;
+}
+
+function aggregateNutritionData(nutritionArray) {
+    const aggregatedData = {};
+
+    for (const nutrition of nutritionArray) {
+        const { date, foodName, ...nutritionValues } = nutrition;
+
+        if (!aggregatedData[date]) {
+            aggregatedData[date] = {
+                date,
+                ...nutritionValues,
+            };
+        } else {
+            for (const key in nutritionValues) {
+                if (nutritionValues.hasOwnProperty(key)) {
+                    aggregatedData[date][key] += nutritionValues[key];
+                }
+            }
+        }
+    }
+
+    return Object.values(aggregatedData);
+}
+
+const fetchDataForDataSource = async (dataSourceId, auth, startTimeNs, endTimeNs) => {
+    const response = await fitness.users.dataSources.datasets.get({
+        userId: 'me',
+        dataSourceId: dataSourceId,
+        datasetId: `${startTimeNs}-${endTimeNs}`,
+        auth: auth
+    });
+
+    return response.data;
+};
+
+function mergeDataArrays(...arrays) {
+    const mergedData = {};
+
+    for (const array of arrays) {
+        for (const item of array) {
+            const { date, ...rest } = item;
+            if (!mergedData[date]) {
+                mergedData[date] = { date, ...rest };
+            } else {
+                Object.assign(mergedData[date], rest);
+            }
+        }
+    }
+
+    return Object.values(mergedData);
+}
+
+function calculateStatistics(dataArray) {
+    let totalDays = 0;
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    let initialWeight = 0;
+    let finalWeight = 0;
+    let firstOccurrence = null;
+    let lastOccurrence = null;
+
+    for (const data of dataArray) {
+        totalDays++;
+        totalCalories += data.calories;
+        totalProtein += data.protein;
+        totalCarbs += data.carbs;
+        totalFat += data.fat;
+        if (!firstOccurrence) {
+            firstOccurrence = data;
+            initialWeight = data.weight;
+        }
+
+        lastOccurrence = data;
+        finalWeight = data.weight;
+    }
+
+    const weightDifference = finalWeight - initialWeight;
+
+    const initialFat = (firstOccurrence.fat_percentage * initialWeight) / 100;
+    const finalFat = (lastOccurrence.fat_percentage * finalWeight) / 100;
+    const fatDifference = finalFat - initialFat;
+
+    const muscleDifference = weightDifference - fatDifference;
+    const fatDifferencePercentage = lastOccurrence.fat_percentage - firstOccurrence.fat_percentage;
+
+    const muscleCalories = CALORIES_PER_KG_MUSCLE * muscleDifference;
+    const fatCalories = CALORIES_PER_KG_FAT * fatDifference;
+    const caloriesDifference = fatCalories + muscleCalories;
+    const tdee = (totalCalories - caloriesDifference) / totalDays;
+    // console.log({
+    //     finalWeight,
+    //     initialWeight,
+    //     tdee,
+    //     totalCalories,
+    //     caloriesDifference,
+    //     totalDays,
+    //     fatCalories,
+    //     muscleCalories,
+    //     fatDifferencePercentage,
+    //     fatDifference,
+    //     muscleDifference,
+    //     weightDifference,
+    // });
+
+    return [
+        `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
+        `Days Range: ${totalDays}`,
+        `TDEE: ${tdee?.toFixed(2)} kcal`,
+        `Average Calories: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
+        `Average Protein: ${(totalProtein / totalDays)?.toFixed(2)} g`,
+        `Average Carbs: ${(totalCarbs / totalDays)?.toFixed(2)} g`,
+        `Average Fat: ${(totalFat / totalDays)?.toFixed(2)} g`,
+        `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference?.toFixed(2)} kg (${initialWeight?.toFixed(2)} -> ${finalWeight?.toFixed(2)})`,
+        `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference?.toFixed(2)} kg`,
+        `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference?.toFixed(2)} kg`,
+        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage?.toFixed(2)}%  (${firstOccurrence.fat_percentage?.toFixed(2)} -> ${lastOccurrence.fat_percentage?.toFixed(2)})`,
+    ].join('\n');
+}
+
+const fetchData = async () => {
     const auth = await google.auth.fromJSON({
         type: process.env.TOKEN_TYPE,
         client_id: process.env.CLIENT_ID,
@@ -58,257 +178,45 @@ async function getFitnesstData() {
     });
 
     auth.scopes = scopes;
-    const { token: accessToken } = await auth.getAccessToken();
+    const dataSources = [
+        "derived:com.google.weight:com.google.android.gms:merge_weight",
+        "derived:com.google.body.fat.percentage:com.google.android.gms:merged",
+        "derived:com.google.nutrition:com.google.android.gms:merged"
+    ];
 
-    // Get the end and start time for the last NUMBER_OF_DAYS days
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const someDaysAgo = new Date(today);
+    someDaysAgo.setDate(today.getDate() - NUMBER_OF_DAYS);
 
-    const endTime = today.getTime();
-    const startTime = endTime - (NUMBER_OF_DAYS * MILLISECONDS_PER_DAY);
+    let startTimeNs = someDaysAgo.getTime() * 1000000;
+    let endTimeNs = today.getTime() * 1000000;
 
-    const aggregatedData = {};
-    const dataTypes = {
-        [FAT_PERCENTAGE]: {
-            average: 0,
-            total: 0,
-            count: 0,
-        },
-        [CALORIES]: {
-            average: 0,
-            total: 0,
-            count: 0,
-        },
-        [PROTEIN]: {
-            average: 0,
-            total: 0,
-            count: 0,
-        },
-        [CARBS]: {
-            average: 0,
-            total: 0,
-            count: 0,
-        },
-        [FAT]: {
-            average: 0,
-            total: 0,
-            count: 0,
-        },
-        [WEIGHT]: {
-            average: 0,
-            total: 0,
-            count: 0,
-        },
-    };
+    const weightData = await fetchDataForDataSource(dataSources[0], auth, startTimeNs, endTimeNs);
+    const fatPercentageData = await fetchDataForDataSource(dataSources[1], auth, startTimeNs, endTimeNs);
 
-    for (const dataTypeName of [FAT_PERCENTAGE_DATA_TYPE, NUTRITION_DATA_TYPE, WEIGHT_DATA_TYPE]) {
-        // Construct the body of the request
-        const body = JSON.stringify({
-            aggregateBy: [{
-                dataTypeName,
-            }],
-            bucketByTime: { durationMillis: MILLISECONDS_PER_DAY },
-            startTimeMillis: startTime,
-            endTimeMillis: endTime
-        });
+    // set start and end to be the same as the weight data
+    startTimeNs = weightData.point[0].startTimeNanos;
+    endTimeNs = weightData.point[weightData.point.length - 1].endTimeNanos;
+    const nutritionData = await fetchDataForDataSource(dataSources[2], auth, startTimeNs, endTimeNs);
 
-        // Construct the headers of the request
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        };
-
-        try {
-            // Make the request to the API
-            const response = await nodeFetch(BASE_URL, {
-                method: 'POST',
-                headers: headers,
-                body: body
-            });
-
-            // Parse the response as JSON
-            const data = await response.json();
-            // writeFileSync(path.resolve('output', `${dataTypeName}.json`), JSON.stringify(data));
-
-            data.bucket.forEach(({ dataset, startTimeMillis }) => {
-                dataset.forEach((dataset) => {
-                    dataset.point.forEach((point) => {
-                        let value = 0;
-                        let protein = 0;
-                        let carbs = 0;
-                        let fat = 0;
-                        let calories = 0;
-                        let type = '';
-                        const types = new Set();
-
-                        if (dataTypeName === FAT_PERCENTAGE_DATA_TYPE) {
-                            value = point.value[0].fpVal;
-                            type = FAT_PERCENTAGE;
-                            types.add(type);
-                        } else if (dataTypeName === WEIGHT_DATA_TYPE) {
-                            value = point.value[0].fpVal;
-                            type = WEIGHT;
-                            types.add(type);
-                        } else if (dataTypeName === NUTRITION_DATA_TYPE) {
-                            point.value[0].mapVal.forEach((macro) => {
-                                // possible types: ['fat.total', 'sodium', 'potassium', 'fat.unsaturated', 'fat.saturated', 'protein', 'carbs.total', 'cholesterol', 'calories', 'sugar', 'dietary_fiber']
-                                type = macro.key;
-
-                                if (macro.key === CALORIES) {
-                                    calories = macro.value.fpVal;
-                                    types.add(type);
-                                }
-
-                                if (macro.key === PROTEIN) {
-                                    protein = macro.value.fpVal;
-                                    types.add(type);
-                                }
-
-                                if (macro.key === CARBS) {
-                                    carbs = macro.value.fpVal;
-                                    types.add(type);
-                                }
-
-                                if (macro.key === FAT) {
-                                    fat = macro.value.fpVal;
-                                    types.add(type);
-                                }
-                            });
-                        }
-
-                        if (value > 0 || calories > 0 || protein > 0 || carbs > 0 || fat > 0) {
-                            const date = new Date(parseInt(startTimeMillis)).toLocaleDateString('en-gb');
-                            [...types].forEach((type) => {
-                                const types = {
-                                    [PROTEIN]: protein,
-                                    [CALORIES]: calories,
-                                    [CARBS]: carbs,
-                                    [FAT]: fat,
-                                };
-
-                                const val = types[type] ?? value;
-                                dataTypes[type].total += val;
-                                dataTypes[type].count++;
-
-                                if (!aggregatedData[date]) {
-                                    aggregatedData[date] = {};
-                                }
-
-                                if (!aggregatedData[date][type]) {
-                                    aggregatedData[date][type] = 0;
-
-                                }
-
-                                aggregatedData[date][type] += val;
-                            });
-                        }
-                    });
-                });
-            });
-        } catch (error) {
-            console.error(error);
-        }
+    function parseDate(dateStr) {
+        const [day, month, year] = dateStr.split('/');
+        return new Date(`${year}-${month}-${day}`);
     }
 
-    // Print the average weight and calories
-    for (const dataTypeName in dataTypes) {
-        const { total, count } = dataTypes[dataTypeName];
-        dataTypes[dataTypeName].average = total / count;
-        // console.log(`Average ${dataTypeName}:`, dataTypes[dataTypeName].average);
-    }
-
-    // Sort the dates
-    const sortedDates = Object.keys(aggregatedData).sort(
-        (a, b) => convertStringToDate(a) - convertStringToDate(b)
-    );
-
-    // Create a new array
-    const tempArray = sortedDates.map((date) => {
-        return {
-            date,
-            data: aggregatedData[date],
-        };
-    }).filter((datum) => CALORIES in datum.data);
-
-    const firstIndex = tempArray.slice(1).findIndex((datum) => WEIGHT in datum.data);
-    let lastIndex = -1;
-    tempArray.forEach((datum, index) => {
-        if (WEIGHT in datum.data && index > lastIndex) {
-            lastIndex = index;
-        }
+    const agragatedData = mergeDataArrays(
+        extractBodyData(weightData, 'weight'),
+        extractBodyData(fatPercentageData, 'fat_percentage'),
+        aggregateNutritionData(extractNutritionData(nutritionData))
+    ).sort((a, b) => {
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
+        return dateA - dateB;
     });
 
-    const newArray = tempArray.slice(firstIndex, lastIndex + 1);
-
-    let firstOccurrence = newArray.at(1); // index one because I weight in the morning
-    let lastOccurrence = newArray.at(-1);
-    let totalCalories = 0;
-    let totalProtein = 0;
-    let totalCarbs = 0;
-    let totalFat = 0;
-    let totalCount = 0;
-
-    newArray.forEach((datum) => {
-        if (datum === lastOccurrence) {
-            return;
-        }
-
-        totalCalories += datum.data[CALORIES];
-        totalProtein += datum.data[PROTEIN];
-        totalCarbs += datum.data[CARBS];
-        totalFat += datum.data[FAT];
-        totalCount++;
-    });
-
-    const initialWeight = firstOccurrence.data[WEIGHT];
-    const finalWeight = lastOccurrence.data[WEIGHT];
-    const weightDifference = finalWeight - initialWeight;
-
-    const initialFat = (firstOccurrence.data[FAT_PERCENTAGE] * initialWeight) / 100;
-    const finalFat = (lastOccurrence.data[FAT_PERCENTAGE] * finalWeight) / 100;
-    const fatDifference = finalFat - initialFat;
-    const fatDifferencePercentage = lastOccurrence.data[FAT_PERCENTAGE] - firstOccurrence.data[FAT_PERCENTAGE];
-    const fatCalories = CALORIES_PER_KG_FAT * fatDifference;
-
-    const initialNonFatMass = initialWeight - initialFat;
-    const finalNonFatMass = finalWeight - finalFat;
-    const muscleDifference = finalNonFatMass - initialNonFatMass;
-    const muscleCalories = CALORIES_PER_KG_MUSCLE * muscleDifference;
-
-    const caloriesDifference = fatCalories + muscleCalories;
-    const tdee = (totalCalories - caloriesDifference) / totalCount;
-    // dd({
-    //     firstOccurrence,
-    //     lastOccurrence,
-    //     initialWeight,
-    //     finalWeight,
-    //     weightDifference,
-    //     initialFat,
-    //     finalFat,
-    //     tdee,
-    //     caloriesDifference,
-    //     muscleCalories,
-    //     muscleDifference,
-    //     fatDifference,
-    // });
-
-    const result = [
-        `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
-        `Days Range: ${totalCount}`,
-        `TDEE: ${tdee.toFixed(2)} kcal`,
-        `Average Calories: ${(totalCalories / totalCount).toFixed(2)} kcal`,
-        `Average Protein: ${(totalProtein / totalCount).toFixed(2)} g`,
-        `Average Carbs: ${(totalCarbs / totalCount).toFixed(2)} g`,
-        `Average Fat: ${(totalFat / totalCount).toFixed(2)} g`,
-        `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference.toFixed(2)} kg (${initialWeight.toFixed(2)} -> ${finalWeight.toFixed(2)})`,
-        `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference.toFixed(2)} kg`,
-        `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference.toFixed(2)} kg`,
-        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage.toFixed(2)}%  (${firstOccurrence.data[FAT_PERCENTAGE].toFixed(2)} -> ${lastOccurrence.data[FAT_PERCENTAGE].toFixed(2)})`,
-    ].join('\n');
-
-    console.info(`${result}\n`);
-    console.info(`${JSON.stringify(newArray)}\n`);
-    console.info(JSON.stringify({ caloriesDifference, totalCalories }));
+    // writeFileSync('output/google_fit_data.json', JSON.stringify(agragatedData, null, 2));
+    const text = calculateStatistics(agragatedData);
+    console.log(text);
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
@@ -316,13 +224,11 @@ async function getFitnesstData() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            text: result,
+            text,
             chat_id: process.env.TELEGRAM_GROUP_ID,
             parse_mode: 'markdown',
         }),
     });
-}
+};
 
-getFitnesstData()
-    .then(() => null)
-    .catch(console.error);
+fetchData().catch(console.error);
