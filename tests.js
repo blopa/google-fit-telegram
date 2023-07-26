@@ -1,6 +1,6 @@
-const {google} = require("googleapis");
-const scopes = require("./scopes");
-const {writeFileSync} = require("fs");
+const { google } = require('googleapis');
+const { writeFileSync } = require('fs');
+const scopes = require('./scopes');
 
 async function listDataSources() {
     const auth = await google.auth.fromJSON({
@@ -17,9 +17,9 @@ async function listDataSources() {
 
     const response = await fitness.users.dataSources.list({
         userId: 'me',
-        auth: auth
+        auth,
     });
 
     writeFileSync('google_fit_data.json', JSON.stringify(response.data, null, 2));
-    console.log("Data saved to google_fit_data.json");
+    console.log('Data saved to google_fit_data.json');
 }

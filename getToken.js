@@ -11,7 +11,7 @@ async function getRefreshToken() {
     });
 
     console.log(
-        client.credentials,
+        client.credentials
         // client.credentials.refresh_token
     );
 }

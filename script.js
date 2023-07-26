@@ -12,7 +12,7 @@ const CALORIES_PER_KG_MUSCLE = 5940;
 
 function nanosToDateString(nanos) {
     const milliseconds = parseInt(nanos) / 1000000;
-    return new Date(milliseconds).toLocaleDateString("en-GB");
+    return new Date(milliseconds).toLocaleDateString('en-GB');
 }
 
 function extractBodyData(jsonArray, type) {
@@ -35,14 +35,14 @@ function extractNutritionData(jsonData) {
         }
 
         nutritionArray.push({
-            date: date,
-            foodName: dataPoint.value[2].stringVal || "",
-            protein: nutritionValues["protein"] || 0,
-            fat: nutritionValues["fat.total"] || 0,
-            carbs: nutritionValues["carbs.total"] || 0,
-            calories: nutritionValues["calories"] || 0,
-            fiber: nutritionValues["dietary_fiber"] || 0,
-            sugar: nutritionValues["sugar"] || 0,
+            date,
+            foodName: dataPoint.value[2].stringVal || '',
+            protein: nutritionValues.protein || 0,
+            fat: nutritionValues['fat.total'] || 0,
+            carbs: nutritionValues['carbs.total'] || 0,
+            calories: nutritionValues.calories || 0,
+            fiber: nutritionValues.dietary_fiber || 0,
+            sugar: nutritionValues.sugar || 0,
         });
     }
 
@@ -75,9 +75,9 @@ function aggregateNutritionData(nutritionArray) {
 const fetchDataForDataSource = async (dataSourceId, auth, startTimeNs, endTimeNs) => {
     const response = await fitness.users.dataSources.datasets.get({
         userId: 'me',
-        dataSourceId: dataSourceId,
+        dataSourceId,
         datasetId: `${startTimeNs}-${endTimeNs}`,
-        auth: auth
+        auth,
     });
 
     return response.data;
@@ -178,29 +178,28 @@ const fetchData = async () => {
     });
 
     auth.scopes = scopes;
-    const dataSources = [
-        "derived:com.google.weight:com.google.android.gms:merge_weight",
-        "derived:com.google.body.fat.percentage:com.google.android.gms:merged",
-        "derived:com.google.nutrition:com.google.android.gms:merged"
-    ];
+    const weightDataSources = 'derived:com.google.weight:com.google.android.gms:merge_weight';
+    const fatPercentageDataSources = 'derived:com.google.body.fat.percentage:com.google.android.gms:merged';
+    const nutritionDataSources = 'derived:com.google.nutrition:com.google.android.gms:merged';
 
     const today = new Date();
-    const someDaysAgo = new Date(today);
-    someDaysAgo.setDate(today.getDate() - NUMBER_OF_DAYS);
+    today.setDate(today.getDate() - 1);
+    const someDaysAgo = new Date();
+    someDaysAgo.setDate(someDaysAgo.getDate() - (NUMBER_OF_DAYS + 1));
 
     let startTimeNs = someDaysAgo.getTime() * 1000000;
     let endTimeNs = today.getTime() * 1000000;
-    console.log({ startTimeNs, endTimeNs });
+    // console.log({ startTimeNs, endTimeNs });
 
-    const weightData = await fetchDataForDataSource(dataSources[0], auth, startTimeNs, endTimeNs);
-    const fatPercentageData = await fetchDataForDataSource(dataSources[1], auth, startTimeNs, endTimeNs);
+    const weightData = await fetchDataForDataSource(weightDataSources, auth, startTimeNs, endTimeNs);
+    const fatPercentageData = await fetchDataForDataSource(fatPercentageDataSources, auth, startTimeNs, endTimeNs);
 
     // set start and end to be the same as the weight data
     startTimeNs = weightData.point[0].startTimeNanos;
     endTimeNs = weightData.point[weightData.point.length - 1].endTimeNanos;
-    console.log({ startTimeNs, endTimeNs });
+    // console.log({ startTimeNs, endTimeNs });
 
-    const nutritionData = await fetchDataForDataSource(dataSources[2], auth, startTimeNs, endTimeNs);
+    const nutritionData = await fetchDataForDataSource(nutritionDataSources, auth, startTimeNs, endTimeNs);
 
     function parseDate(dateStr) {
         const [day, month, year] = dateStr.split('/');
