@@ -15,6 +15,23 @@ function nanosToDateString(nanos) {
     return new Date(milliseconds).toLocaleDateString('en-GB');
 }
 
+function extractCaloriesExpendedData(caloriesObject) {
+    const transformedData = [];
+
+    if (!caloriesObject || !caloriesObject.point || !Array.isArray(caloriesObject.point)) {
+        return transformedData;
+    }
+
+    caloriesObject.point.forEach((entry) => {
+        const date = nanosToDateString(entry.startTimeNanos);
+        const calories = entry.value[0].fpVal;
+
+        transformedData.push({ date, calories_expended: calories });
+    });
+
+    return transformedData;
+}
+
 function extractBodyData(jsonArray, type) {
     return jsonArray.point.map((dataPoint) => {
         const date = nanosToDateString(dataPoint.startTimeNanos);
@@ -58,12 +75,38 @@ function aggregateNutritionData(nutritionArray) {
         if (!aggregatedData[date]) {
             aggregatedData[date] = {
                 date,
+                foods: [foodName],
                 ...nutritionValues,
             };
         } else {
+            aggregatedData[date].foods.push(foodName);
+
             Object.keys(nutritionValues).forEach((key) => {
                 if (Object.prototype.hasOwnProperty.call(nutritionValues, key)) {
                     aggregatedData[date][key] += nutritionValues[key];
+                }
+            });
+        }
+    });
+
+    return Object.values(aggregatedData);
+}
+
+function aggregateCaloriesExpendedData(caloriesExpendedArray) {
+    const aggregatedData = {};
+
+    caloriesExpendedArray.forEach((caloriesExpended) => {
+        const { date, ...caloriesExpendedValues } = caloriesExpended;
+
+        if (!aggregatedData[date]) {
+            aggregatedData[date] = {
+                date,
+                ...caloriesExpendedValues,
+            };
+        } else {
+            Object.keys(caloriesExpendedValues).forEach((key) => {
+                if (Object.prototype.hasOwnProperty.call(caloriesExpendedValues, key)) {
+                    aggregatedData[date][key] += caloriesExpendedValues[key];
                 }
             });
         }
@@ -103,19 +146,24 @@ function mergeDataArrays(...arrays) {
 function calculateStatistics(dataArray) {
     const totalDays = dataArray.length;
     let totalCalories = 0;
+    let totalCaloriesExpended = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
     let totalFat = 0;
+    let totalFiber = 0;
     let initialWeight = 0;
     let finalWeight = 0;
     let firstOccurrence = null;
     let lastOccurrence = null;
 
     dataArray.forEach((data) => {
+        totalCaloriesExpended += data.calories_expended;
         totalCalories += data.calories;
         totalProtein += data.protein;
         totalCarbs += data.carbs;
         totalFat += data.fat;
+        totalFiber += data.fiber;
+
         if (!firstOccurrence) {
             firstOccurrence = data;
             initialWeight = data.weight;
@@ -158,9 +206,11 @@ function calculateStatistics(dataArray) {
         `Days Range: ${totalDays}`,
         `TDEE: ${tdee?.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
+        `Average Expended Calories: ${(totalCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
         `Average Protein: ${(totalProtein / totalDays)?.toFixed(2)} g`,
         `Average Carbs: ${(totalCarbs / totalDays)?.toFixed(2)} g`,
         `Average Fat: ${(totalFat / totalDays)?.toFixed(2)} g`,
+        `Average Fiber: ${(totalFiber / totalDays)?.toFixed(2)} g`,
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference?.toFixed(2)} kg (${initialWeight?.toFixed(2)} -> ${finalWeight?.toFixed(2)})`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference?.toFixed(2)} kg`,
         `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference?.toFixed(2)} kg`,
@@ -169,6 +219,18 @@ function calculateStatistics(dataArray) {
 }
 
 const fetchData = async () => {
+    // Validate environment variables
+    if (
+        !process.env.TOKEN_TYPE
+        || !process.env.CLIENT_ID
+        || !process.env.CLIENT_SECRET
+        || !process.env.REFRESH_TOKEN
+        || !process.env.TELEGRAM_BOT_ID
+        || !process.env.TELEGRAM_GROUP_ID
+    ) {
+        throw new Error('Missing environment variables');
+    }
+
     const auth = await google.auth.fromJSON({
         type: process.env.TOKEN_TYPE,
         client_id: process.env.CLIENT_ID,
@@ -180,6 +242,9 @@ const fetchData = async () => {
     const weightDataSources = 'derived:com.google.weight:com.google.android.gms:merge_weight';
     const fatPercentageDataSources = 'derived:com.google.body.fat.percentage:com.google.android.gms:merged';
     const nutritionDataSources = 'derived:com.google.nutrition:com.google.android.gms:merged';
+    const caloriesExpendedDataSources = 'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended';
+    const stepCountDataSources = 'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas';
+    const heartMinutesDataSources = 'derived:com.google.heart_minutes:com.google.android.gms:merge_heart_minutes';
 
     const today = new Date();
     today.setDate(today.getDate() - 1);
@@ -199,6 +264,12 @@ const fetchData = async () => {
     // console.log({ startTimeNs, endTimeNs });
 
     const nutritionData = await fetchDataForDataSource(nutritionDataSources, auth, startTimeNs, endTimeNs);
+    const caloriesExpendedData = await fetchDataForDataSource(
+        caloriesExpendedDataSources,
+        auth,
+        startTimeNs,
+        endTimeNs
+    );
 
     function parseDate(dateStr) {
         const [day, month, year] = dateStr.split('/');
@@ -208,7 +279,8 @@ const fetchData = async () => {
     const agragatedData = mergeDataArrays(
         extractBodyData(weightData, 'weight'),
         extractBodyData(fatPercentageData, 'fat_percentage'),
-        aggregateNutritionData(extractNutritionData(nutritionData))
+        aggregateNutritionData(extractNutritionData(nutritionData)),
+        aggregateCaloriesExpendedData(extractCaloriesExpendedData(caloriesExpendedData))
     ).sort((a, b) => {
         const dateA = parseDate(a.date);
         const dateB = parseDate(b.date);
@@ -218,7 +290,7 @@ const fetchData = async () => {
     // writeFileSync('output/google_fit_data.json', JSON.stringify(agragatedData, null, 2));
     const text = calculateStatistics(agragatedData);
     console.log(text);
-    console.log(agragatedData);
+    console.log(JSON.stringify(agragatedData));
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
