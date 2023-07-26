@@ -190,6 +190,7 @@ const fetchData = async () => {
 
     let startTimeNs = someDaysAgo.getTime() * 1000000;
     let endTimeNs = today.getTime() * 1000000;
+    console.log({ startTimeNs, endTimeNs });
 
     const weightData = await fetchDataForDataSource(dataSources[0], auth, startTimeNs, endTimeNs);
     const fatPercentageData = await fetchDataForDataSource(dataSources[1], auth, startTimeNs, endTimeNs);
@@ -197,6 +198,8 @@ const fetchData = async () => {
     // set start and end to be the same as the weight data
     startTimeNs = weightData.point[0].startTimeNanos;
     endTimeNs = weightData.point[weightData.point.length - 1].endTimeNanos;
+    console.log({ startTimeNs, endTimeNs });
+
     const nutritionData = await fetchDataForDataSource(dataSources[2], auth, startTimeNs, endTimeNs);
 
     function parseDate(dateStr) {
