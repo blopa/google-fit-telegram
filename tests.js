@@ -2,6 +2,8 @@ const { google } = require('googleapis');
 const { writeFileSync } = require('fs');
 const scopes = require('./scopes');
 
+const fitness = google.fitness('v1');
+
 async function listDataSources() {
     const auth = await google.auth.fromJSON({
         type: process.env.TOKEN_TYPE,

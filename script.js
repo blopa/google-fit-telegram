@@ -11,7 +11,7 @@ const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
 
 function nanosToDateString(nanos) {
-    const milliseconds = parseInt(nanos) / 1000000;
+    const milliseconds = parseInt(nanos, 10) / 1000000;
     return new Date(milliseconds).toLocaleDateString('en-GB');
 }
 
@@ -26,13 +26,13 @@ function extractBodyData(jsonArray, type) {
 function extractNutritionData(jsonData) {
     const nutritionArray = [];
 
-    for (const dataPoint of jsonData.point) {
+    jsonData.point.forEach((dataPoint) => {
         const date = nanosToDateString(dataPoint.startTimeNanos);
         const nutritionValues = {};
 
-        for (const item of dataPoint.value[0].mapVal) {
+        dataPoint.value[0].mapVal.forEach((item) => {
             nutritionValues[item.key] = item.value.fpVal;
-        }
+        });
 
         nutritionArray.push({
             date,
@@ -44,7 +44,7 @@ function extractNutritionData(jsonData) {
             fiber: nutritionValues.dietary_fiber || 0,
             sugar: nutritionValues.sugar || 0,
         });
-    }
+    });
 
     return nutritionArray;
 }
@@ -52,7 +52,7 @@ function extractNutritionData(jsonData) {
 function aggregateNutritionData(nutritionArray) {
     const aggregatedData = {};
 
-    for (const nutrition of nutritionArray) {
+    nutritionArray.forEach((nutrition) => {
         const { date, foodName, ...nutritionValues } = nutrition;
 
         if (!aggregatedData[date]) {
@@ -61,13 +61,13 @@ function aggregateNutritionData(nutritionArray) {
                 ...nutritionValues,
             };
         } else {
-            for (const key in nutritionValues) {
-                if (nutritionValues.hasOwnProperty(key)) {
+            Object.keys(nutritionValues).forEach((key) => {
+                if (Object.prototype.hasOwnProperty.call(nutritionValues, key)) {
                     aggregatedData[date][key] += nutritionValues[key];
                 }
-            }
+            });
         }
-    }
+    });
 
     return Object.values(aggregatedData);
 }
@@ -86,22 +86,22 @@ const fetchDataForDataSource = async (dataSourceId, auth, startTimeNs, endTimeNs
 function mergeDataArrays(...arrays) {
     const mergedData = {};
 
-    for (const array of arrays) {
-        for (const item of array) {
+    arrays.forEach((array) => {
+        array.forEach((item) => {
             const { date, ...rest } = item;
             if (!mergedData[date]) {
                 mergedData[date] = { date, ...rest };
             } else {
                 Object.assign(mergedData[date], rest);
             }
-        }
-    }
+        });
+    });
 
     return Object.values(mergedData);
 }
 
 function calculateStatistics(dataArray) {
-    let totalDays = 0;
+    const totalDays = dataArray.length;
     let totalCalories = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
@@ -111,8 +111,7 @@ function calculateStatistics(dataArray) {
     let firstOccurrence = null;
     let lastOccurrence = null;
 
-    for (const data of dataArray) {
-        totalDays++;
+    dataArray.forEach((data) => {
         totalCalories += data.calories;
         totalProtein += data.protein;
         totalCarbs += data.carbs;
@@ -124,7 +123,7 @@ function calculateStatistics(dataArray) {
 
         lastOccurrence = data;
         finalWeight = data.weight;
-    }
+    });
 
     const weightDifference = finalWeight - initialWeight;
 
