@@ -1,12 +1,12 @@
 require('dotenv').config();
 const { google } = require('googleapis');
-// const { writeFileSync } = require('fs');
+const { writeFileSync } = require('fs');
 // const path = require('path');
 const nodeFetch = require('node-fetch');
 const scopes = require('./scopes');
 
 const fitness = google.fitness('v1');
-const NUMBER_OF_DAYS = 30;
+const NUMBER_OF_DAYS = 5;
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
 
@@ -27,6 +27,40 @@ function extractCaloriesExpendedData(caloriesObject) {
         const calories = entry.value[0].fpVal;
 
         transformedData.push({ date, calories_expended: calories });
+    });
+
+    return transformedData;
+}
+
+function extractStepsData(stepsObject) {
+    const transformedData = [];
+
+    if (!stepsObject || !stepsObject.point || !Array.isArray(stepsObject.point)) {
+        return transformedData;
+    }
+
+    stepsObject.point.forEach((entry) => {
+        const date = nanosToDateString(entry.startTimeNanos);
+        const steps = entry.value[0].intVal;
+
+        transformedData.push({ date, steps });
+    });
+
+    return transformedData;
+}
+
+function extractHeartMinutesData(heartMinutesObject) {
+    const transformedData = [];
+
+    if (!heartMinutesObject || !heartMinutesObject.point || !Array.isArray(heartMinutesObject.point)) {
+        return transformedData;
+    }
+
+    heartMinutesObject.point.forEach((entry) => {
+        const date = nanosToDateString(entry.startTimeNanos);
+        const heartMinutes = entry.value[0].fpVal;
+
+        transformedData.push({ date, heartMinutes });
     });
 
     return transformedData;
@@ -115,6 +149,52 @@ function aggregateCaloriesExpendedData(caloriesExpendedArray) {
     return Object.values(aggregatedData);
 }
 
+function aggregateStepsData(stepsArray) {
+    const aggregatedData = {};
+
+    stepsArray.forEach((steps) => {
+        const { date, ...stepsValues } = steps;
+
+        if (!aggregatedData[date]) {
+            aggregatedData[date] = {
+                date,
+                ...stepsValues,
+            };
+        } else {
+            Object.keys(stepsValues).forEach((key) => {
+                if (Object.prototype.hasOwnProperty.call(stepsValues, key)) {
+                    aggregatedData[date][key] += stepsValues[key];
+                }
+            });
+        }
+    });
+
+    return Object.values(aggregatedData);
+}
+
+function aggregateHeartMinutesData(heartMinutesArray) {
+    const aggregatedData = {};
+
+    heartMinutesArray.forEach((heartMinutes) => {
+        const { date, ...heartMinutesValues } = heartMinutes;
+
+        if (!aggregatedData[date]) {
+            aggregatedData[date] = {
+                date,
+                ...heartMinutesValues,
+            };
+        } else {
+            Object.keys(heartMinutesValues).forEach((key) => {
+                if (Object.prototype.hasOwnProperty.call(heartMinutesValues, key)) {
+                    aggregatedData[date][key] += heartMinutesValues[key];
+                }
+            });
+        }
+    });
+
+    return Object.values(aggregatedData);
+}
+
 const fetchDataForDataSource = async (dataSourceId, auth, startTimeNs, endTimeNs) => {
     const response = await fitness.users.dataSources.datasets.get({
         userId: 'me',
@@ -147,6 +227,8 @@ function calculateStatistics(dataArray) {
     const totalDays = dataArray.length;
     let totalCalories = 0;
     let totalCaloriesExpended = 0;
+    let totalSteps = 0;
+    let totalHeartMinutes = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
     let totalFat = 0;
@@ -158,6 +240,8 @@ function calculateStatistics(dataArray) {
 
     dataArray.forEach((data) => {
         totalCaloriesExpended += data.calories_expended;
+        totalSteps += data.steps;
+        totalHeartMinutes += data.heartMinutes;
         totalCalories += data.calories;
         totalProtein += data.protein;
         totalCarbs += data.carbs;
@@ -187,6 +271,7 @@ function calculateStatistics(dataArray) {
     const caloriesDifference = fatCalories + muscleCalories;
     const tdee = (totalCalories - caloriesDifference) / totalDays;
     // console.log({
+    //     steps,
     //     finalWeight,
     //     initialWeight,
     //     tdee,
@@ -206,6 +291,8 @@ function calculateStatistics(dataArray) {
         `Days Range: ${totalDays}`,
         `TDEE: ${tdee?.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
+        `Average Steps: ${(totalSteps / totalDays)?.toFixed(2)} kcal`,
+        `Average Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)} kcal`,
         `Average Expended Calories: ${(totalCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
         `Average Protein: ${(totalProtein / totalDays)?.toFixed(2)} g`,
         `Average Carbs: ${(totalCarbs / totalDays)?.toFixed(2)} g`,
@@ -245,15 +332,20 @@ const fetchData = async () => {
     const caloriesExpendedDataSources = 'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended';
     const stepCountDataSources = 'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas';
     const heartMinutesDataSources = 'derived:com.google.heart_minutes:com.google.android.gms:merge_heart_minutes';
+    const sleepDataSources = 'derived:com.google.sleep.segment:com.google.android.gms:merged';
 
-    const today = new Date();
-    today.setDate(today.getDate() - 1);
-    const someDaysAgo = new Date();
-    someDaysAgo.setDate(someDaysAgo.getDate() - (NUMBER_OF_DAYS + 1));
+    const endDate = new Date();
+    // endDate.setDate(endDate.getDate() - 1);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (NUMBER_OF_DAYS + 1));
 
-    let startTimeNs = someDaysAgo.getTime() * 1000000;
-    let endTimeNs = today.getTime() * 1000000;
+    let startTimeNs = startDate.getTime() * 1000000;
+    let endTimeNs = endDate.getTime() * 1000000;
     // console.log({ startTimeNs, endTimeNs });
+
+    const data = await fetchDataForDataSource(sleepDataSources, auth, startTimeNs, endTimeNs);
+    writeFileSync('output/google_fit_data2.json', JSON.stringify(((data)), null, 2));
+    process.exit(0);
 
     const weightData = await fetchDataForDataSource(weightDataSources, auth, startTimeNs, endTimeNs);
     const fatPercentageData = await fetchDataForDataSource(fatPercentageDataSources, auth, startTimeNs, endTimeNs);
@@ -264,6 +356,8 @@ const fetchData = async () => {
     // console.log({ startTimeNs, endTimeNs });
 
     const nutritionData = await fetchDataForDataSource(nutritionDataSources, auth, startTimeNs, endTimeNs);
+    const stepsData = await fetchDataForDataSource(stepCountDataSources, auth, startTimeNs, endTimeNs);
+    const heartMinutesData = await fetchDataForDataSource(heartMinutesDataSources, auth, startTimeNs, endTimeNs);
     const caloriesExpendedData = await fetchDataForDataSource(
         caloriesExpendedDataSources,
         auth,
@@ -280,17 +374,30 @@ const fetchData = async () => {
         extractBodyData(weightData, 'weight'),
         extractBodyData(fatPercentageData, 'fat_percentage'),
         aggregateNutritionData(extractNutritionData(nutritionData)),
-        aggregateCaloriesExpendedData(extractCaloriesExpendedData(caloriesExpendedData))
-    ).sort((a, b) => {
-        const dateA = parseDate(a.date);
-        const dateB = parseDate(b.date);
-        return dateA - dateB;
-    }).filter((data) => data.calories > 0);
+        aggregateCaloriesExpendedData(extractCaloriesExpendedData(caloriesExpendedData)),
+        aggregateStepsData(extractStepsData(stepsData)),
+        aggregateHeartMinutesData(extractHeartMinutesData(heartMinutesData))
+    )
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            return dateA - dateB;
+        })
+        .filter((data) => data.calories > 0)
+        .reduceRight((acc, item) => {
+            if (item.calories || acc.length) {
+                acc.unshift(item);
+            }
+            return acc;
+        }, []);
 
     // writeFileSync('output/google_fit_data.json', JSON.stringify(agragatedData, null, 2));
     const text = calculateStatistics(agragatedData);
-    console.log(text);
-    console.log(JSON.stringify(agragatedData));
+    console.log(
+        text,
+        // JSON.stringify(agragatedData),
+        agragatedData
+    );
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
