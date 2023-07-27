@@ -1,12 +1,12 @@
 require('dotenv').config();
 const { google } = require('googleapis');
-const { writeFileSync } = require('fs');
+// const { writeFileSync } = require('fs');
 // const path = require('path');
 const nodeFetch = require('node-fetch');
 const scopes = require('./scopes');
 
 const fitness = google.fitness('v1');
-const NUMBER_OF_DAYS = 5;
+const NUMBER_OF_DAYS = 30;
 const CALORIES_PER_KG_FAT = 7700;
 const CALORIES_PER_KG_MUSCLE = 5940;
 
@@ -44,6 +44,36 @@ function extractStepsData(stepsObject) {
         const steps = entry.value[0].intVal;
 
         transformedData.push({ date, steps });
+    });
+
+    return transformedData;
+}
+
+function extractSleepData(sleepObject) {
+    const transformedData = [];
+    const sleepTypes = {
+        1: 'Awake',
+        2: 'Sleep',
+        3: 'Out-of-bed',
+        4: 'Light sleep',
+        5: 'Deep sleep',
+        6: 'REM sleep',
+    };
+
+    if (!sleepObject || !sleepObject.point || !Array.isArray(sleepObject.point)) {
+        return [];
+    }
+
+    sleepObject.point.forEach((entry) => {
+        const date = nanosToDateString(entry.startTimeNanos);
+        const durationHours = (parseInt(entry.endTimeNanos, 10) - parseInt(entry.startTimeNanos, 10)) / (1e9 * 3600);
+        const type = sleepTypes[entry.value[0].intVal];
+
+        transformedData.push({
+            date,
+            sleptHours: Math.round(durationHours * 100) / 100,
+            sleepType: type,
+        });
     });
 
     return transformedData;
@@ -118,6 +148,32 @@ function aggregateNutritionData(nutritionArray) {
             Object.keys(nutritionValues).forEach((key) => {
                 if (Object.prototype.hasOwnProperty.call(nutritionValues, key)) {
                     aggregatedData[date][key] += nutritionValues[key];
+                }
+            });
+        }
+    });
+
+    return Object.values(aggregatedData);
+}
+
+function aggregateSleepData(sleepArray) {
+    const aggregatedData = {};
+
+    sleepArray.forEach((sleep) => {
+        const { date, sleepType, ...sleepValues } = sleep;
+
+        if (!aggregatedData[date]) {
+            aggregatedData[date] = {
+                date,
+                sleepType: [sleepType],
+                ...sleepValues,
+            };
+        } else {
+            aggregatedData[date].sleepType = [...new Set([...aggregatedData[date].sleepType, sleepType])];
+
+            Object.keys(sleepValues).forEach((key) => {
+                if (Object.prototype.hasOwnProperty.call(sleepValues, key)) {
+                    aggregatedData[date][key] += sleepValues[key];
                 }
             });
         }
@@ -225,9 +281,12 @@ function mergeDataArrays(...arrays) {
 
 function calculateStatistics(dataArray) {
     const totalDays = dataArray.length;
+    const totalSleepDays = dataArray.filter((data) => data.sleptHours > 0).length;
+
     let totalCalories = 0;
     let totalCaloriesExpended = 0;
     let totalSteps = 0;
+    let totalSleptHours = 0;
     let totalHeartMinutes = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
@@ -239,14 +298,18 @@ function calculateStatistics(dataArray) {
     let lastOccurrence = null;
 
     dataArray.forEach((data) => {
-        totalCaloriesExpended += data.calories_expended;
-        totalSteps += data.steps;
-        totalHeartMinutes += data.heartMinutes;
+        // nutrition
         totalCalories += data.calories;
         totalProtein += data.protein;
         totalCarbs += data.carbs;
         totalFat += data.fat;
         totalFiber += data.fiber;
+
+        // health
+        totalHeartMinutes += data.heartMinutes || 0;
+        totalCaloriesExpended += data.calories_expended || 0;
+        totalSteps += data.steps || 0;
+        totalSleptHours += data.sleptHours || 0;
 
         if (!firstOccurrence) {
             firstOccurrence = data;
@@ -291,9 +354,10 @@ function calculateStatistics(dataArray) {
         `Days Range: ${totalDays}`,
         `TDEE: ${tdee?.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
-        `Average Steps: ${(totalSteps / totalDays)?.toFixed(2)} kcal`,
-        `Average Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)} kcal`,
         `Average Expended Calories: ${(totalCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
+        `Average Steps: ${(totalSteps / totalDays)?.toFixed(2)}`,
+        `Average Slept Hours: ${(totalSleptHours / totalSleepDays)?.toFixed(2)}`,
+        `Average Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)}`,
         `Average Protein: ${(totalProtein / totalDays)?.toFixed(2)} g`,
         `Average Carbs: ${(totalCarbs / totalDays)?.toFixed(2)} g`,
         `Average Fat: ${(totalFat / totalDays)?.toFixed(2)} g`,
@@ -343,10 +407,6 @@ const fetchData = async () => {
     let endTimeNs = endDate.getTime() * 1000000;
     // console.log({ startTimeNs, endTimeNs });
 
-    const data = await fetchDataForDataSource(sleepDataSources, auth, startTimeNs, endTimeNs);
-    writeFileSync('output/google_fit_data2.json', JSON.stringify(((data)), null, 2));
-    process.exit(0);
-
     const weightData = await fetchDataForDataSource(weightDataSources, auth, startTimeNs, endTimeNs);
     const fatPercentageData = await fetchDataForDataSource(fatPercentageDataSources, auth, startTimeNs, endTimeNs);
 
@@ -358,6 +418,7 @@ const fetchData = async () => {
     const nutritionData = await fetchDataForDataSource(nutritionDataSources, auth, startTimeNs, endTimeNs);
     const stepsData = await fetchDataForDataSource(stepCountDataSources, auth, startTimeNs, endTimeNs);
     const heartMinutesData = await fetchDataForDataSource(heartMinutesDataSources, auth, startTimeNs, endTimeNs);
+    const sleepData = await fetchDataForDataSource(sleepDataSources, auth, startTimeNs, endTimeNs);
     const caloriesExpendedData = await fetchDataForDataSource(
         caloriesExpendedDataSources,
         auth,
@@ -376,7 +437,8 @@ const fetchData = async () => {
         aggregateNutritionData(extractNutritionData(nutritionData)),
         aggregateCaloriesExpendedData(extractCaloriesExpendedData(caloriesExpendedData)),
         aggregateStepsData(extractStepsData(stepsData)),
-        aggregateHeartMinutesData(extractHeartMinutesData(heartMinutesData))
+        aggregateHeartMinutesData(extractHeartMinutesData(heartMinutesData)),
+        aggregateSleepData(extractSleepData(sleepData))
     )
         .sort((a, b) => {
             const dateA = parseDate(a.date);

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { google } = require('googleapis');
 const { writeFileSync } = require('fs');
-const scopes = require('./scopes');
+const scopes = require('../scopes');
 
 const fitness = google.fitness('v1');
 

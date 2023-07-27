@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fetch = require('node-fetch');
 const { google } = require('googleapis');
-const SCOPES = require('./scopes');
+const SCOPES = require('../scopes');
 
 const fetchData = async () => {
     const auth = await google.auth.fromJSON({
