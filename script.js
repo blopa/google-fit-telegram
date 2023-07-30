@@ -106,7 +106,7 @@ function extractNutritionData(jsonData) {
             protein: nutritionValues.protein || 0,
             fat: nutritionValues['fat.total'] || 0,
             carbs: nutritionValues['carbs.total'] || 0,
-            calories: nutritionValues.calories || 0,
+            caloriesConsumed: nutritionValues.calories || 0,
             fiber: nutritionValues.dietary_fiber || 0,
             sugar: nutritionValues.sugar || 0,
         });
@@ -238,7 +238,7 @@ function calculateStatistics(dataArray) {
 
     dataArray.forEach((data) => {
         // nutrition
-        totalCalories += data.calories;
+        totalCalories += data.caloriesConsumed;
         totalProtein += data.protein;
         totalCarbs += data.carbs;
         totalFat += data.fat;
@@ -390,9 +390,9 @@ const fetchData = async () => {
             const dateB = parseDate(b.date);
             return dateA - dateB;
         })
-        .filter((data) => data.calories > 0)
+        .filter((data) => data.caloriesConsumed > 0)
         .reduceRight((acc, item) => {
-            if (item.calories || acc.length) {
+            if (item.caloriesConsumed || acc.length) {
                 acc.unshift(item);
             }
             return acc;
