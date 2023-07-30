@@ -201,6 +201,27 @@ const fetchDataForDataSource = async (dataSourceId, auth, startTimeNs, endTimeNs
     return response.data;
 };
 
+function convertToCSV(data) {
+    const headers = Object.keys(data[0]);
+    const csv = [headers.join(',')];
+
+    data.forEach((row) => {
+        const values = [];
+        headers.forEach((header) => {
+            const value = row[header];
+            if (Array.isArray(value)) {
+                values.push(`"${value.join('|')}"`);
+            } else {
+                values.push(value);
+            }
+        });
+
+        csv.push(values.join(','));
+    });
+
+    return csv.join('\n');
+}
+
 function mergeDataArrays(...arrays) {
     const mergedData = {};
 
@@ -223,7 +244,7 @@ function calculateStatistics(dataArray) {
     const totalSleepDays = dataArray.filter((data) => data.sleptHours > 0).length;
 
     let totalCalories = 0;
-    let totalCaloriesExpended = 0;
+    let totalEstimatedCaloriesExpended = 0;
     let totalSteps = 0;
     let totalSleptHours = 0;
     let totalHeartMinutes = 0;
@@ -246,7 +267,7 @@ function calculateStatistics(dataArray) {
 
         // health
         totalHeartMinutes += data.heartMinutes || 0;
-        totalCaloriesExpended += data.caloriesExpended || 0;
+        totalEstimatedCaloriesExpended += data.estimatedCaloriesExpended || 0;
         totalSteps += data.steps || 0;
         totalSleptHours += data.sleptHours || 0;
 
@@ -299,7 +320,7 @@ function calculateStatistics(dataArray) {
         `Days Range: ${totalDays}`,
         `TDEE: ${tdee?.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
-        `Average Expended Calories: ${(totalCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
+        `Average Expended Calories: ${(totalEstimatedCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
         `Average Steps: ${(totalSteps / totalDays)?.toFixed(2)}`,
         `Average Slept Hours: ${(totalSleptHours / totalSleepDays)?.toFixed(2)}`,
         `Average Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)}`,
@@ -338,7 +359,7 @@ const fetchData = async () => {
     const weightDataSources = 'derived:com.google.weight:com.google.android.gms:merge_weight';
     const fatPercentageDataSources = 'derived:com.google.body.fat.percentage:com.google.android.gms:merged';
     const nutritionDataSources = 'derived:com.google.nutrition:com.google.android.gms:merged';
-    const caloriesExpendedDataSources = 'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended';
+    const estimatedCaloriesExpendedDataSources = 'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended';
     const stepCountDataSources = 'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas';
     const heartMinutesDataSources = 'derived:com.google.heart_minutes:com.google.android.gms:merge_heart_minutes';
     const sleepDataSources = 'derived:com.google.sleep.segment:com.google.android.gms:merged';
@@ -364,8 +385,8 @@ const fetchData = async () => {
     const stepsData = await fetchDataForDataSource(stepCountDataSources, auth, startTimeNs, endTimeNs);
     const heartMinutesData = await fetchDataForDataSource(heartMinutesDataSources, auth, startTimeNs, endTimeNs);
     const sleepData = await fetchDataForDataSource(sleepDataSources, auth, startTimeNs, endTimeNs);
-    const caloriesExpendedData = await fetchDataForDataSource(
-        caloriesExpendedDataSources,
+    const estimatedCaloriesExpendedData = await fetchDataForDataSource(
+        estimatedCaloriesExpendedDataSources,
         auth,
         startTimeNs,
         endTimeNs
@@ -381,7 +402,7 @@ const fetchData = async () => {
         extractBodyData(fatPercentageData, 'fatPercentage'),
         aggregateNutritionData(extractNutritionData(nutritionData)),
         aggregateSleepData(extractSleepData(sleepData)),
-        aggregateData(extractFloatingPointData(caloriesExpendedData, 'caloriesExpended')),
+        aggregateData(extractFloatingPointData(estimatedCaloriesExpendedData, 'estimatedCaloriesExpended')),
         aggregateData(extractIntegerData(stepsData, 'steps')),
         aggregateData(extractFloatingPointData(heartMinutesData, 'heartMinutes'))
     )
@@ -405,6 +426,9 @@ const fetchData = async () => {
         // JSON.stringify(agragatedData),
         agragatedData
     );
+
+    // const csvData = convertToCSV(agragatedData);
+    // writeFileSync('output.csv', csvData, 'utf-8');
 
     await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
         method: 'POST',
