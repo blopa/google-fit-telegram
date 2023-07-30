@@ -7,43 +7,45 @@ const scopes = require('./scopes');
 
 const fitness = google.fitness('v1');
 const NUMBER_OF_DAYS = 30;
-const CALORIES_PER_KG_FAT = 7700;
-const CALORIES_PER_KG_MUSCLE = 5940;
+const CALORIES_STORED_KG_FAT = 7700; // 82% fat, 8% proteins/carbs and 10% water.
+const CALORIES_BUILD_KG_FAT = 8500; // efficiency to build fat is ~90%.
+const CALORIES_STORED_KG_MUSCLE = 1500; // 20% protein, 4% proteins/carbs, 6% fat and 20% water.
+const CALORIES_BUILD_KG_MUSCLE = 5600; // efficiency to build muscle is ~27%.
 
 function nanosToDateString(nanos) {
     const milliseconds = parseInt(nanos, 10) / 1000000;
     return new Date(milliseconds).toLocaleDateString('en-GB');
 }
 
-function extractCaloriesExpendedData(caloriesObject) {
+function extractFloatingPointData(dataObject, type) {
     const transformedData = [];
 
-    if (!caloriesObject || !caloriesObject.point || !Array.isArray(caloriesObject.point)) {
+    if (!dataObject || !dataObject.point || !Array.isArray(dataObject.point)) {
         return transformedData;
     }
 
-    caloriesObject.point.forEach((entry) => {
+    dataObject.point.forEach((entry) => {
         const date = nanosToDateString(entry.startTimeNanos);
-        const calories = entry.value[0].fpVal;
+        const data = entry.value[0].fpVal;
 
-        transformedData.push({ date, calories_expended: calories });
+        transformedData.push({ date, [type]: data });
     });
 
     return transformedData;
 }
 
-function extractStepsData(stepsObject) {
+function extractIntegerData(dataObject, type) {
     const transformedData = [];
 
-    if (!stepsObject || !stepsObject.point || !Array.isArray(stepsObject.point)) {
+    if (!dataObject || !dataObject.point || !Array.isArray(dataObject.point)) {
         return transformedData;
     }
 
-    stepsObject.point.forEach((entry) => {
+    dataObject.point.forEach((entry) => {
         const date = nanosToDateString(entry.startTimeNanos);
-        const steps = entry.value[0].intVal;
+        const data = entry.value[0].intVal;
 
-        transformedData.push({ date, steps });
+        transformedData.push({ date, [type]: data });
     });
 
     return transformedData;
@@ -74,23 +76,6 @@ function extractSleepData(sleepObject) {
             sleptHours: Math.round(durationHours * 100) / 100,
             sleepType: type,
         });
-    });
-
-    return transformedData;
-}
-
-function extractHeartMinutesData(heartMinutesObject) {
-    const transformedData = [];
-
-    if (!heartMinutesObject || !heartMinutesObject.point || !Array.isArray(heartMinutesObject.point)) {
-        return transformedData;
-    }
-
-    heartMinutesObject.point.forEach((entry) => {
-        const date = nanosToDateString(entry.startTimeNanos);
-        const heartMinutes = entry.value[0].fpVal;
-
-        transformedData.push({ date, heartMinutes });
     });
 
     return transformedData;
@@ -182,67 +167,21 @@ function aggregateSleepData(sleepArray) {
     return Object.values(aggregatedData);
 }
 
-function aggregateCaloriesExpendedData(caloriesExpendedArray) {
+function aggregateData(dataArray) {
     const aggregatedData = {};
 
-    caloriesExpendedArray.forEach((caloriesExpended) => {
-        const { date, ...caloriesExpendedValues } = caloriesExpended;
+    dataArray.forEach((data) => {
+        const { date, ...dataValues } = data;
 
         if (!aggregatedData[date]) {
             aggregatedData[date] = {
                 date,
-                ...caloriesExpendedValues,
+                ...dataValues,
             };
         } else {
-            Object.keys(caloriesExpendedValues).forEach((key) => {
-                if (Object.prototype.hasOwnProperty.call(caloriesExpendedValues, key)) {
-                    aggregatedData[date][key] += caloriesExpendedValues[key];
-                }
-            });
-        }
-    });
-
-    return Object.values(aggregatedData);
-}
-
-function aggregateStepsData(stepsArray) {
-    const aggregatedData = {};
-
-    stepsArray.forEach((steps) => {
-        const { date, ...stepsValues } = steps;
-
-        if (!aggregatedData[date]) {
-            aggregatedData[date] = {
-                date,
-                ...stepsValues,
-            };
-        } else {
-            Object.keys(stepsValues).forEach((key) => {
-                if (Object.prototype.hasOwnProperty.call(stepsValues, key)) {
-                    aggregatedData[date][key] += stepsValues[key];
-                }
-            });
-        }
-    });
-
-    return Object.values(aggregatedData);
-}
-
-function aggregateHeartMinutesData(heartMinutesArray) {
-    const aggregatedData = {};
-
-    heartMinutesArray.forEach((heartMinutes) => {
-        const { date, ...heartMinutesValues } = heartMinutes;
-
-        if (!aggregatedData[date]) {
-            aggregatedData[date] = {
-                date,
-                ...heartMinutesValues,
-            };
-        } else {
-            Object.keys(heartMinutesValues).forEach((key) => {
-                if (Object.prototype.hasOwnProperty.call(heartMinutesValues, key)) {
-                    aggregatedData[date][key] += heartMinutesValues[key];
+            Object.keys(dataValues).forEach((key) => {
+                if (Object.prototype.hasOwnProperty.call(dataValues, key)) {
+                    aggregatedData[date][key] += dataValues[key];
                 }
             });
         }
@@ -307,7 +246,7 @@ function calculateStatistics(dataArray) {
 
         // health
         totalHeartMinutes += data.heartMinutes || 0;
-        totalCaloriesExpended += data.calories_expended || 0;
+        totalCaloriesExpended += data.caloriesExpended || 0;
         totalSteps += data.steps || 0;
         totalSleptHours += data.sleptHours || 0;
 
@@ -322,15 +261,21 @@ function calculateStatistics(dataArray) {
 
     const weightDifference = finalWeight - initialWeight;
 
-    const initialFat = (firstOccurrence.fat_percentage * initialWeight) / 100;
-    const finalFat = (lastOccurrence.fat_percentage * finalWeight) / 100;
+    const initialFat = (firstOccurrence.fatPercentage * initialWeight) / 100;
+    const finalFat = (lastOccurrence.fatPercentage * finalWeight) / 100;
     const fatDifference = finalFat - initialFat;
 
     const muscleDifference = weightDifference - fatDifference;
-    const fatDifferencePercentage = lastOccurrence.fat_percentage - firstOccurrence.fat_percentage;
+    const fatDifferencePercentage = lastOccurrence.fatPercentage - firstOccurrence.fatPercentage;
 
-    const muscleCalories = CALORIES_PER_KG_MUSCLE * muscleDifference;
-    const fatCalories = CALORIES_PER_KG_FAT * fatDifference;
+    const muscleCalories = muscleDifference > 0 ?
+        muscleDifference * CALORIES_BUILD_KG_MUSCLE
+        : muscleDifference * CALORIES_STORED_KG_MUSCLE;
+
+    const fatCalories = fatDifference > 0 ?
+        fatDifference * CALORIES_BUILD_KG_FAT
+        : fatDifference * CALORIES_STORED_KG_FAT;
+
     const caloriesDifference = fatCalories + muscleCalories;
     const tdee = (totalCalories - caloriesDifference) / totalDays;
     // console.log({
@@ -365,7 +310,7 @@ function calculateStatistics(dataArray) {
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference?.toFixed(2)} kg (${initialWeight?.toFixed(2)} -> ${finalWeight?.toFixed(2)})`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference?.toFixed(2)} kg`,
         `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference?.toFixed(2)} kg`,
-        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage?.toFixed(2)}%  (${firstOccurrence.fat_percentage?.toFixed(2)} -> ${lastOccurrence.fat_percentage?.toFixed(2)})`,
+        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage?.toFixed(2)}%  (${firstOccurrence.fatPercentage?.toFixed(2)} -> ${lastOccurrence.fatPercentage?.toFixed(2)})`,
     ].join('\n');
 }
 
@@ -433,12 +378,12 @@ const fetchData = async () => {
 
     const agragatedData = mergeDataArrays(
         extractBodyData(weightData, 'weight'),
-        extractBodyData(fatPercentageData, 'fat_percentage'),
+        extractBodyData(fatPercentageData, 'fatPercentage'),
         aggregateNutritionData(extractNutritionData(nutritionData)),
-        aggregateCaloriesExpendedData(extractCaloriesExpendedData(caloriesExpendedData)),
-        aggregateStepsData(extractStepsData(stepsData)),
-        aggregateHeartMinutesData(extractHeartMinutesData(heartMinutesData)),
-        aggregateSleepData(extractSleepData(sleepData))
+        aggregateSleepData(extractSleepData(sleepData)),
+        aggregateData(extractFloatingPointData(caloriesExpendedData, 'caloriesExpended')),
+        aggregateData(extractIntegerData(stepsData, 'steps')),
+        aggregateData(extractFloatingPointData(heartMinutesData, 'heartMinutes'))
     )
         .sort((a, b) => {
             const dateA = parseDate(a.date);
