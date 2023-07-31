@@ -9,7 +9,7 @@ const fitness = google.fitness('v1');
 const NUMBER_OF_DAYS = 30;
 const CALORIES_STORED_KG_FAT = 7700; // 82% fat, 8% proteins/carbs and 10% water.
 const CALORIES_BUILD_KG_FAT = 8500; // efficiency to build fat is ~90%.
-const CALORIES_STORED_KG_MUSCLE = 1500; // 20% protein, 4% proteins/carbs, 6% fat and 20% water.
+const CALORIES_STORED_KG_MUSCLE = 1500; // 20% protein, 4% proteins/carbs, 6% fat and 70% water.
 const CALORIES_BUILD_KG_MUSCLE = 5600; // efficiency to build muscle is ~27%.
 
 function nanosToDateString(nanos) {
