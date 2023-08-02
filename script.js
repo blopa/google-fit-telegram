@@ -239,56 +239,50 @@ function mergeDataArrays(...arrays) {
     return Object.values(mergedData);
 }
 
-function calculateStatistics(dataArray) {
-    const totalDays = dataArray.length;
-    const totalSleepDays = dataArray.filter((data) => data.sleptHours > 0).length;
-
-    let totalCalories = 0;
-    let totalEstimatedCaloriesExpended = 0;
-    let totalSteps = 0;
-    let totalSleptHours = 0;
-    let totalHeartMinutes = 0;
-    let totalProtein = 0;
-    let totalCarbs = 0;
-    let totalFat = 0;
-    let totalFiber = 0;
-    let initialWeight = 0;
-    let finalWeight = 0;
-    let firstOccurrence = null;
-    let lastOccurrence = null;
+function accumulateData(dataArray) {
+    const accumulator = {
+        totalCalories: 0,
+        totalEstimatedCaloriesExpended: 0,
+        totalSteps: 0,
+        totalSleptHours: 0,
+        totalHeartMinutes: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        totalFiber: 0,
+        initialWeight: dataArray[0]?.weight || 0,
+        finalWeight: dataArray[dataArray.length - 1]?.weight || 0,
+        firstOccurrence: dataArray[0],
+        lastOccurrence: dataArray[dataArray.length - 1],
+    };
 
     dataArray.forEach((data) => {
-        // nutrition
-        totalCalories += data.caloriesConsumed;
-        totalProtein += data.protein;
-        totalCarbs += data.carbs;
-        totalFat += data.fat;
-        totalFiber += data.fiber;
+        accumulator.totalCalories += data.caloriesConsumed;
+        accumulator.totalProtein += data.protein;
+        accumulator.totalCarbs += data.carbs;
+        accumulator.totalFat += data.fat;
+        accumulator.totalFiber += data.fiber;
 
-        // health
-        totalHeartMinutes += data.heartMinutes || 0;
-        totalEstimatedCaloriesExpended += data.estimatedCaloriesExpended || 0;
-        totalSteps += data.steps || 0;
-        totalSleptHours += data.sleptHours || 0;
-
-        if (!firstOccurrence) {
-            firstOccurrence = data;
-            initialWeight = data.weight;
-        }
-
-        lastOccurrence = data;
-        finalWeight = data.weight;
+        accumulator.totalHeartMinutes += data.heartMinutes || 0;
+        accumulator.totalEstimatedCaloriesExpended += data.estimatedCaloriesExpended || 0;
+        accumulator.totalSteps += data.steps || 0;
+        accumulator.totalSleptHours += data.sleptHours || 0;
     });
 
-    const weightDifference = finalWeight - initialWeight;
+    return accumulator;
+}
 
-    const initialFat = (firstOccurrence.fatPercentage * initialWeight) / 100;
-    const finalFat = (lastOccurrence.fatPercentage * finalWeight) / 100;
+function calculateWeightDifference(firstOccurrence, lastOccurrence) {
+    const weightDifference = lastOccurrence.weight - firstOccurrence.weight;
+    const initialFat = (firstOccurrence.fatPercentage * firstOccurrence.weight) / 100;
+    const finalFat = (lastOccurrence.fatPercentage * lastOccurrence.weight) / 100;
     const fatDifference = finalFat - initialFat;
-
     const muscleDifference = weightDifference - fatDifference;
     const fatDifferencePercentage = lastOccurrence.fatPercentage - firstOccurrence.fatPercentage;
+    return { weightDifference, fatDifference, muscleDifference, fatDifferencePercentage };
+}
 
+function calculateMuscleAndFatCalories(muscleDifference, fatDifference) {
     const muscleCalories = muscleDifference > 0 ?
         muscleDifference * CALORIES_BUILD_KG_MUSCLE
         : muscleDifference * CALORIES_STORED_KG_MUSCLE;
@@ -297,8 +291,44 @@ function calculateStatistics(dataArray) {
         fatDifference * CALORIES_BUILD_KG_FAT
         : fatDifference * CALORIES_STORED_KG_FAT;
 
+    return { muscleCalories, fatCalories };
+}
+
+function calculateTDEE(totalCalories, muscleCalories, fatCalories, totalDays) {
     const caloriesDifference = fatCalories + muscleCalories;
-    const tdee = (totalCalories - caloriesDifference) / totalDays;
+    return (totalCalories - caloriesDifference) / totalDays;
+}
+
+function calculateStatistics(dataArray) {
+    const totalDays = dataArray.length;
+    const totalSleepDays = dataArray.filter((data) => data.sleptHours > 0).length;
+
+    const {
+        totalFat,
+        totalFiber,
+        totalSteps,
+        totalCarbs,
+        finalWeight,
+        totalProtein,
+        totalCalories,
+        initialWeight,
+        lastOccurrence,
+        totalSleptHours,
+        firstOccurrence,
+        totalHeartMinutes,
+        totalEstimatedCaloriesExpended,
+    } = accumulateData(dataArray);
+
+    const {
+        fatDifference,
+        weightDifference,
+        muscleDifference,
+        fatDifferencePercentage,
+    } = calculateWeightDifference(firstOccurrence, lastOccurrence);
+
+    const { muscleCalories, fatCalories } = calculateMuscleAndFatCalories(muscleDifference, fatDifference);
+    const tdee = calculateTDEE(totalCalories, muscleCalories, fatCalories, totalDays);
+
     // console.log({
     //     steps,
     //     finalWeight,
