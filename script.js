@@ -17,8 +17,8 @@ const CALORIES_BUILD_KG_FAT = 8500; // efficiency to build fat is ~77%.
 // https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
 // 2% fat, 4% other, 24% protein, 70% water.
 const CALORIES_STORED_KG_MUSCLE = 1140; // 180 from fat, 960 from protein.
-// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9856405/#sec2dot3-cells-12-00249title
-const CALORIES_BUILD_KG_MUSCLE = 5600; // efficiency to build muscle is ~27%.
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8387577/#sec-10title
+const CALORIES_BUILD_KG_MUSCLE = 2340; // efficiency to build muscle is ~48%.
 
 function nanosToDateString(nanos) {
     const milliseconds = parseInt(nanos, 10) / 1000000;
