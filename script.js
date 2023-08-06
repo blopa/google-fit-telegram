@@ -9,15 +9,15 @@ const fitness = google.fitness('v1');
 const NUMBER_OF_DAYS = 30;
 
 // https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
-// 2% fat, 4% other, 24% protein, 70% water.
-// 1% other, 8% protein, 5% water, 86% fat.
-// The adipose tissue energy reserve contains approximately 83% pure fat, 2% protein, and 15% water, found on Exercise Physiology: Nutrition, Energy, and Human Performance, page 736.
-// https://www.google.nl/books/edition/Exercise_Physiology/XOyjZX0Wxw4C?hl=en&gbpv=1&dq=%22The%20adipose%20tissue%20energy%20reserve%20contains%20approximately%22&pg=PA737&printsec=frontcover
-const CALORIES_STORED_KG_FAT = 7700; // 82% fat, 8% proteins/carbs and 10% water.
-const CALORIES_BUILD_KG_FAT = 8500; // efficiency to build fat is ~90%.
+// 1% other, 5% water, 8% protein, 86% fat.
+const CALORIES_STORED_KG_FAT = 8060; // 7740 from fat, 320 from protein.
+// https://www.sciencedirect.com/science/article/pii/S2212877815000599/#sectitle0050
+const CALORIES_BUILD_KG_FAT = 8500; // efficiency to build fat is ~77%.
 
-// 15% protein, 10% fat and 75% water. Human Anatomy & Physiology, 11th edition, page 1013 and https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6723611/#sec3-nutrients-11-01857title
-const CALORIES_STORED_KG_MUSCLE = 1500;
+// https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
+// 2% fat, 4% other, 24% protein, 70% water.
+const CALORIES_STORED_KG_MUSCLE = 1140; // 180 from fat, 960 from protein.
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9856405/#sec2dot3-cells-12-00249title
 const CALORIES_BUILD_KG_MUSCLE = 5600; // efficiency to build muscle is ~27%.
 
 function nanosToDateString(nanos) {
