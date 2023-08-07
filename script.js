@@ -12,15 +12,15 @@ const NUMBER_OF_DAYS = 30;
 // 1% other, 5% water, 8% protein, 86% fat.
 // https://www.sciencedirect.com/science/article/pii/S2212877815000599/#sectitle0050
 // efficiency to build fat is ~77%.
-const CALORIES_STORED_KG_FAT = 8060; // 7740 from fat, 320 from protein.
-const CALORIES_BUILD_KG_FAT = 8500;
+const CALORIES_STORED_KG_FAT = 7730;
+const CALORIES_BUILD_KG_FAT = 8840;
 
 // https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
 // 2% fat, 4% other, 24% protein, 70% water.
 // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8387577/#sec-10title
 // efficiency to build muscle is ~48%.
-const CALORIES_STORED_KG_MUSCLE = 1140; // 180 from fat, 960 from protein.
-const CALORIES_BUILD_KG_MUSCLE = 2340;
+const CALORIES_STORED_KG_MUSCLE = 1250;
+const CALORIES_BUILD_KG_MUSCLE = 3900;
 
 function nanosToDateString(nanos) {
     const milliseconds = parseInt(nanos, 10) / 1000000;
