@@ -250,6 +250,9 @@ function mergeDataArrays(...arrays) {
 }
 
 function accumulateData(dataArray) {
+    const lastOccurrence = dataArray[dataArray.length - 1];
+    const firstOccurrence = dataArray[0];
+
     const accumulator = {
         totalCalories: 0,
         totalEstimatedCaloriesExpended: 0,
@@ -260,10 +263,12 @@ function accumulateData(dataArray) {
         totalCarbs: 0,
         totalFat: 0,
         totalFiber: 0,
-        initialWeight: dataArray[0]?.weight || 0,
-        finalWeight: dataArray[dataArray.length - 1]?.weight || 0,
-        firstOccurrence: dataArray[0],
-        lastOccurrence: dataArray[dataArray.length - 1],
+        initialWeight: firstOccurrence?.weight,
+        finalWeight: lastOccurrence?.weight,
+        initialFatPercentage: firstOccurrence?.fatPercentage,
+        finalFatPercentage: lastOccurrence?.fatPercentage,
+        initialDate: firstOccurrence?.date || '',
+        finalDate: lastOccurrence?.date || '',
     };
 
     dataArray.forEach((data) => {
@@ -282,13 +287,14 @@ function accumulateData(dataArray) {
     return accumulator;
 }
 
-function calculateWeightDifference(firstOccurrence, lastOccurrence) {
-    const weightDifference = lastOccurrence.weight - firstOccurrence.weight;
-    const initialFat = (firstOccurrence.fatPercentage * firstOccurrence.weight) / 100;
-    const finalFat = (lastOccurrence.fatPercentage * lastOccurrence.weight) / 100;
+function calculateWeightDifference(initialWeight, finalWeight, initialFatPercentage, finalFatPercentage) {
+    const weightDifference = finalWeight - initialWeight;
+    const initialFat = (initialFatPercentage * initialWeight) / 100;
+    const finalFat = (finalFatPercentage * finalWeight) / 100;
     const fatDifference = finalFat - initialFat;
     const muscleDifference = weightDifference - fatDifference;
-    const fatDifferencePercentage = lastOccurrence.fatPercentage - firstOccurrence.fatPercentage;
+    const fatDifferencePercentage = finalFatPercentage - initialFatPercentage;
+
     return { weightDifference, fatDifference, muscleDifference, fatDifferencePercentage };
 }
 
@@ -306,6 +312,7 @@ function calculateMuscleAndFatCalories(muscleDifference, fatDifference) {
 
 function calculateTDEE(totalCalories, muscleCalories, fatCalories, totalDays) {
     const caloriesDifference = fatCalories + muscleCalories;
+
     return (totalCalories - caloriesDifference) / totalDays;
 }
 
@@ -322,9 +329,11 @@ function calculateStatistics(dataArray) {
         totalProtein,
         totalCalories,
         initialWeight,
-        lastOccurrence,
+        initialFatPercentage,
+        finalFatPercentage,
+        initialDate,
+        finalDate,
         totalSleptHours,
-        firstOccurrence,
         totalHeartMinutes,
         totalEstimatedCaloriesExpended,
     } = accumulateData(dataArray);
@@ -334,7 +343,7 @@ function calculateStatistics(dataArray) {
         weightDifference,
         muscleDifference,
         fatDifferencePercentage,
-    } = calculateWeightDifference(firstOccurrence, lastOccurrence);
+    } = calculateWeightDifference(initialWeight, finalWeight, initialFatPercentage, finalFatPercentage);
 
     const { muscleCalories, fatCalories } = calculateMuscleAndFatCalories(muscleDifference, fatDifference);
     const tdee = calculateTDEE(totalCalories, muscleCalories, fatCalories, totalDays);
@@ -356,7 +365,7 @@ function calculateStatistics(dataArray) {
     // });
 
     return [
-        `*From ${firstOccurrence.date} to ${lastOccurrence.date}*\n`,
+        `*From ${initialDate} to ${finalDate}*\n`,
         `Days Range: ${totalDays}`,
         `TDEE: ${tdee?.toFixed(2)} kcal`,
         `Average Calories: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
@@ -371,7 +380,7 @@ function calculateStatistics(dataArray) {
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference?.toFixed(2)} kg (${initialWeight?.toFixed(2)} -> ${finalWeight?.toFixed(2)})`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference?.toFixed(2)} kg`,
         `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference?.toFixed(2)} kg`,
-        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage?.toFixed(2)}%  (${firstOccurrence.fatPercentage?.toFixed(2)} -> ${lastOccurrence.fatPercentage?.toFixed(2)})`,
+        `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage?.toFixed(2)}%  (${initialFatPercentage?.toFixed(2)} -> ${finalFatPercentage?.toFixed(2)})`,
     ].join('\n');
 }
 
