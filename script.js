@@ -462,9 +462,10 @@ const fetchData = async () => {
         })
         .filter((data) => data.caloriesConsumed > 0)
         .reduceRight((acc, item) => {
-            if (item.caloriesConsumed || acc.length) {
+            if (item.fatPercentage || acc.length) {
                 acc.unshift(item);
             }
+
             return acc;
         }, []);
 
