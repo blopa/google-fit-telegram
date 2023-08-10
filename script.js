@@ -471,11 +471,11 @@ const fetchData = async () => {
 
     // writeFileSync('output/google_fit_data.json', JSON.stringify(agragatedData, null, 2));
     const text = calculateStatistics(agragatedData);
-    console.log(
-        text,
-        // JSON.stringify(agragatedData),
-        agragatedData
-    );
+    // console.log(
+    //     text,
+    //     JSON.stringify(agragatedData),
+    //     agragatedData
+    // );
 
     // const csvData = convertToCSV(agragatedData);
     // writeFileSync('output.csv', csvData, 'utf-8');
