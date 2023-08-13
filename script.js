@@ -83,8 +83,8 @@ function extractSleepData(sleepObject) {
 
         transformedData.push({
             date,
-            sleptHours: Math.round(durationHours * 100) / 100,
             sleepType: type,
+            sleptHours: Math.round(durationHours * 100) / 100,
         });
     });
 
@@ -112,13 +112,13 @@ function extractNutritionData(jsonData) {
 
         nutritionArray.push({
             date,
-            foodName: dataPoint.value[2].stringVal || '',
+            sugar: nutritionValues.sugar || 0,
             protein: nutritionValues.protein || 0,
             fat: nutritionValues['fat.total'] || 0,
-            carbs: nutritionValues['carbs.total'] || 0,
-            caloriesConsumed: nutritionValues.calories || 0,
             fiber: nutritionValues.dietary_fiber || 0,
-            sugar: nutritionValues.sugar || 0,
+            carbs: nutritionValues['carbs.total'] || 0,
+            foodName: dataPoint.value[2].stringVal || '',
+            caloriesConsumed: nutritionValues.calories || 0,
         });
     });
 
@@ -254,34 +254,34 @@ function accumulateData(dataArray) {
     const firstOccurrence = dataArray[0];
 
     const accumulator = {
-        totalCalories: 0,
-        totalEstimatedCaloriesExpended: 0,
+        totalFat: 0,
         totalSteps: 0,
+        totalCarbs: 0,
+        totalFiber: 0,
+        totalProtein: 0,
+        totalCalories: 0,
         totalSleptHours: 0,
         totalHeartMinutes: 0,
-        totalProtein: 0,
-        totalCarbs: 0,
-        totalFat: 0,
-        totalFiber: 0,
-        initialWeight: firstOccurrence?.weight,
+        totalEstimatedCaloriesExpended: 0,
         finalWeight: lastOccurrence?.weight,
-        initialFatPercentage: firstOccurrence?.fatPercentage,
-        finalFatPercentage: lastOccurrence?.fatPercentage,
-        initialDate: firstOccurrence?.date || '',
         finalDate: lastOccurrence?.date || '',
+        initialWeight: firstOccurrence?.weight,
+        initialDate: firstOccurrence?.date || '',
+        finalFatPercentage: lastOccurrence?.fatPercentage,
+        initialFatPercentage: firstOccurrence?.fatPercentage,
     };
 
     dataArray.forEach((data) => {
         accumulator.totalCalories += data.caloriesConsumed;
         accumulator.totalProtein += data.protein;
+        accumulator.totalFiber += data.fiber;
         accumulator.totalCarbs += data.carbs;
         accumulator.totalFat += data.fat;
-        accumulator.totalFiber += data.fiber;
 
-        accumulator.totalHeartMinutes += data.heartMinutes || 0;
-        accumulator.totalEstimatedCaloriesExpended += data.estimatedCaloriesExpended || 0;
         accumulator.totalSteps += data.steps || 0;
         accumulator.totalSleptHours += data.sleptHours || 0;
+        accumulator.totalHeartMinutes += data.heartMinutes || 0;
+        accumulator.totalEstimatedCaloriesExpended += data.estimatedCaloriesExpended || 0;
     });
 
     return accumulator;
@@ -453,12 +453,12 @@ const fetchData = async () => {
 
     const agragatedData = mergeDataArrays(
         extractBodyData(weightData, 'weight'),
-        extractBodyData(fatPercentageData, 'fatPercentage'),
-        aggregateNutritionData(extractNutritionData(nutritionData)),
         aggregateSleepData(extractSleepData(sleepData)),
-        aggregateData(extractFloatingPointData(estimatedCaloriesExpendedData, 'estimatedCaloriesExpended')),
+        extractBodyData(fatPercentageData, 'fatPercentage'),
         aggregateData(extractIntegerData(stepsData, 'steps')),
-        aggregateData(extractFloatingPointData(heartMinutesData, 'heartMinutes'))
+        aggregateNutritionData(extractNutritionData(nutritionData)),
+        aggregateData(extractFloatingPointData(heartMinutesData, 'heartMinutes')),
+        aggregateData(extractFloatingPointData(estimatedCaloriesExpendedData, 'estimatedCaloriesExpended'))
     )
         .sort((a, b) => {
             const dateA = parseDate(a.date);
