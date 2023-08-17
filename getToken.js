@@ -1,5 +1,5 @@
-const { authenticate } = require('@google-cloud/local-auth');
 const path = require('path');
+const { authenticate } = require('@google-cloud/local-auth');
 const { google } = require('googleapis');
 const scopes = require('./scopes');
 
