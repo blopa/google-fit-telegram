@@ -295,7 +295,7 @@ function calculateWeightDifference(initialWeight, finalWeight, initialFatPercent
     const muscleDifference = weightDifference - fatDifference;
     const fatDifferencePercentage = finalFatPercentage - initialFatPercentage;
 
-    return { weightDifference, fatDifference, muscleDifference, fatDifferencePercentage };
+    return { weightDifference, fatDifference, muscleDifference, fatDifferencePercentage, finalFat };
 }
 
 function calculateMuscleAndFatCalories(muscleDifference, fatDifference) {
@@ -343,6 +343,7 @@ function calculateStatistics(dataArray) {
         weightDifference,
         muscleDifference,
         fatDifferencePercentage,
+        finalFat,
     } = calculateWeightDifference(initialWeight, finalWeight, initialFatPercentage, finalFatPercentage);
 
     const { muscleCalories, fatCalories } = calculateMuscleAndFatCalories(muscleDifference, fatDifference);
@@ -381,10 +382,12 @@ function calculateStatistics(dataArray) {
         `Average Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)}`,
         '\n* - Progress - *',
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference?.toFixed(2)} kg (${initialWeight?.toFixed(2)} -> ${finalWeight?.toFixed(2)})`,
+        `Current Fat: ${finalFat?.toFixed(2)} kg (${finalFatPercentage?.toFixed(2)}%)`,
         `Fat Difference: ${fatDifference > 0 ? '+' : ''}${fatDifference?.toFixed(2)} kg`,
         `Non-Fat Difference: ${muscleDifference > 0 ? '+' : ''}${muscleDifference?.toFixed(2)} kg`,
         `Fat Percentage Difference: ${fatDifferencePercentage > 0 ? '+' : ''}${fatDifferencePercentage?.toFixed(2)}%  (${initialFatPercentage?.toFixed(2)} -> ${finalFatPercentage?.toFixed(2)})`,
-        `\nEat ${(tdee - CALORIES_STORED_KG_FAT / 14)?.toFixed(2)} kcal per day to lose 500g of fat per week`,
+        `\n1% of your body fat is ${(finalFat / finalFatPercentage).toFixed(2)} kg`,
+        `Eat ${(tdee - CALORIES_STORED_KG_FAT / 14)?.toFixed(2)} kcal per day to lose 500g of fat per week`,
         `Eat ${(tdee + CALORIES_BUILD_KG_MUSCLE / 14)?.toFixed(2)} kcal per day to gain 500g of muscle per week`,
     ].join('\n');
 }
