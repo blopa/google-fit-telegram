@@ -7,6 +7,7 @@ const scopes = require('./scopes');
 
 const fitness = google.fitness('v1');
 const NUMBER_OF_DAYS = process.env.NUMBER_OF_DAYS || 30;
+const START_DATE = process.env.START_DATE;
 
 // https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
 // 1% other, 5% water, 8% protein, 86% fat.
@@ -423,8 +424,10 @@ const fetchData = async () => {
 
     const endDate = new Date();
     // endDate.setDate(endDate.getDate() - 1);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - (NUMBER_OF_DAYS + 1));
+    const startDate = new Date(START_DATE || Date.now());
+    if (!START_DATE) {
+        startDate.setDate(startDate.getDate() - (NUMBER_OF_DAYS + 1));
+    }
 
     let startTimeNs = startDate.getTime() * 1000000;
     let endTimeNs = endDate.getTime() * 1000000;
