@@ -2,12 +2,12 @@ require('dotenv').config();
 const { google } = require('googleapis');
 // const { writeFileSync } = require('fs');
 // const path = require('path');
-const nodeFetch = require('node-fetch');
+const axios = require('axios');
 const scopes = require('./scopes');
 
 const fitness = google.fitness('v1');
 const NUMBER_OF_DAYS = process.env.NUMBER_OF_DAYS || 30;
-const START_DATE = process.env.START_DATE;
+const START_DATE = process.env.START_DATE || null;
 
 // https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
 // 1% other, 5% water, 8% protein, 86% fat.
@@ -491,16 +491,14 @@ const fetchData = async () => {
     // const csvData = convertToCSV(agragatedData);
     // writeFileSync('output.csv', csvData, 'utf-8');
 
-    await nodeFetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
-        method: 'POST',
+    const response = await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_ID}/sendMessage`, {
+        text,
+        chat_id: process.env.TELEGRAM_GROUP_ID,
+        parse_mode: 'markdown',
+    }, {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            text,
-            chat_id: process.env.TELEGRAM_GROUP_ID,
-            parse_mode: 'markdown',
-        }),
     });
 };
 

@@ -1,5 +1,5 @@
 require('dotenv').config();
-const fetch = require('node-fetch');
+const axios = require('axios');
 const { google } = require('googleapis');
 const SCOPES = require('../scopes');
 
@@ -37,21 +37,19 @@ const fetchData = async () => {
     };
 
     try {
-        const response = await fetch(url, {
-            method: 'POST',
+        const response = await axios.post(url, body, {
             headers,
-            body: JSON.stringify(body),
         });
 
-        if (response.ok) {
-            const data = await response.json();
+        if (response.status === 200) {
+            const { data } = response;
             console.log(data);
         } else {
-            const errorData = await response.json();
+            const errorData = response.data;
             console.error(`Error ${response.status}: ${response.statusText}`, errorData);
         }
     } catch (error) {
-        console.error('Fetch error:', error);
+        console.error('Axios error:', error);
     }
 };
 
