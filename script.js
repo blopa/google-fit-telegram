@@ -120,6 +120,8 @@ function extractNutritionData(jsonData) {
             carbs: nutritionValues['carbs.total'] || 0,
             foodName: dataPoint.value[2].stringVal || '',
             caloriesConsumed: nutritionValues.calories || 0,
+            saturatedFat: nutritionValues['fat.saturated'] || 0,
+            unsaturatedFat: nutritionValues['fat.unsaturated'] || 0,
         });
     });
 
@@ -263,6 +265,8 @@ function accumulateData(dataArray) {
         totalCalories: 0,
         totalSleptHours: 0,
         totalHeartMinutes: 0,
+        totalSaturatedFat: 0,
+        totalUnsaturatedFat: 0,
         totalEstimatedCaloriesExpended: 0,
         finalWeight: lastOccurrence?.weight,
         finalDate: lastOccurrence?.date || '',
@@ -273,6 +277,8 @@ function accumulateData(dataArray) {
     };
 
     dataArray.forEach((data) => {
+        accumulator.totalSaturatedFat += data.saturatedFat;
+        accumulator.totalUnsaturatedFat += data.unsaturatedFat;
         accumulator.totalCalories += data.caloriesConsumed;
         accumulator.totalProtein += data.protein;
         accumulator.totalFiber += data.fiber;
@@ -333,8 +339,10 @@ function calculateStatistics(dataArray) {
         totalCalories,
         initialWeight,
         totalSleptHours,
+        totalSaturatedFat,
         totalHeartMinutes,
         finalFatPercentage,
+        totalUnsaturatedFat,
         initialFatPercentage,
         totalEstimatedCaloriesExpended,
     } = accumulateData(dataArray);
@@ -369,18 +377,20 @@ function calculateStatistics(dataArray) {
     return [
         `*From ${initialDate} to ${finalDate}*`,
         `Days Range: ${totalDays}`,
-        '\n* - Nutrition - *',
+        '\n* - Nutrition Daily Averages - *',
         `TDEE: ${tdee?.toFixed(2)} kcal`,
-        `Average Calories Intake: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
-        `Average Protein Intake: ${(totalProtein / totalDays)?.toFixed(2)} g`,
-        `Average Carbs Intake: ${(totalCarbs / totalDays)?.toFixed(2)} g`,
-        `Average Fat Intake: ${(totalFat / totalDays)?.toFixed(2)} g`,
-        `Average Fiber Intake: ${(totalFiber / totalDays)?.toFixed(2)} g`,
-        '\n* - Health - *',
-        `Average Expended Calories: ${(totalEstimatedCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
-        `Average Steps: ${(totalSteps / totalDays)?.toFixed(2)}`,
-        `Average Slept Hours: ${(totalSleptHours / totalSleepDays)?.toFixed(2)}`,
-        `Average Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)}`,
+        `Calories Intake: ${(totalCalories / totalDays)?.toFixed(2)} kcal`,
+        `Protein Intake: ${(totalProtein / totalDays)?.toFixed(2)} g`,
+        `Carbs Intake: ${(totalCarbs / totalDays)?.toFixed(2)} g`,
+        `Fat Intake: ${(totalFat / totalDays)?.toFixed(2)} g`,
+        `Saturated Fat Intake: ${(totalSaturatedFat / totalDays)?.toFixed(2)} g`,
+        `Unsaturated Fat Intake: ${(totalUnsaturatedFat / totalDays)?.toFixed(2)} g`,
+        `Fiber Intake: ${(totalFiber / totalDays)?.toFixed(2)} g`,
+        '\n* - Health Daily Averages - *',
+        `Expended Calories: ${(totalEstimatedCaloriesExpended / totalDays)?.toFixed(2)} kcal`,
+        `Steps: ${(totalSteps / totalDays)?.toFixed(2)}`,
+        `Slept Hours: ${(totalSleptHours / totalSleepDays)?.toFixed(2)}`,
+        `Heart Points: ${(totalHeartMinutes / totalDays)?.toFixed(2)}`,
         '\n* - Progress - *',
         `Weight Difference: ${weightDifference > 0 ? '+' : ''}${weightDifference?.toFixed(2)} kg (${initialWeight?.toFixed(2)} -> ${finalWeight?.toFixed(2)})`,
         `Current Fat: ${finalFat?.toFixed(2)} kg (${finalFatPercentage?.toFixed(2)}%)`,
@@ -390,6 +400,7 @@ function calculateStatistics(dataArray) {
         `\n1% of your body fat is ${(finalFat / finalFatPercentage).toFixed(2)} kg`,
         `Eat ${(tdee - CALORIES_STORED_KG_FAT / 14)?.toFixed(2)} kcal per day to lose 500g of fat per week`,
         `Eat ${(tdee + CALORIES_BUILD_KG_MUSCLE / 14)?.toFixed(2)} kcal per day to gain 500g of muscle per week`,
+        `Eat ${(tdee + (CALORIES_BUILD_KG_MUSCLE / 28) + (CALORIES_STORED_KG_FAT / 28))?.toFixed(2)} kcal per day to gain 250g of muscle and 250g of fat per week`,
     ].join('\n');
 }
 
@@ -438,8 +449,10 @@ const fetchData = async () => {
 
     // set start and end to be the same as the weight data
     startTimeNs = weightData.point[0].startTimeNanos;
-    endTimeNs = weightData.point[weightData.point.length - 1].endTimeNanos;
+    endTimeNs = weightData.point.at(-1).endTimeNanos;
+
     // console.log({ startTimeNs, endTimeNs });
+    // console.log(new Date(parseInt(endTimeNs, 10) / 1000000));
 
     const nutritionData = await fetchDataForDataSource(nutritionDataSources, auth, startTimeNs, endTimeNs);
     const stepsData = await fetchDataForDataSource(stepCountDataSources, auth, startTimeNs, endTimeNs);
@@ -451,6 +464,11 @@ const fetchData = async () => {
         startTimeNs,
         endTimeNs
     );
+
+    // const points = nutritionData.point;
+    // points.sort((a, b) => parseInt(a.startTimeNanos, 10) - parseInt(b.startTimeNanos, 10));
+    // console.log(new Date(parseInt(points.at(-1).startTimeNanos, 10) / 1000000));
+    // writeFileSync('output/nutrition.json', JSON.stringify(points, null, 2));
 
     function parseDate(dateStr) {
         const [day, month, year] = dateStr.split('/');
