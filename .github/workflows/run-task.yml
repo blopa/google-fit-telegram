@@ -2,10 +2,7 @@ name: Run Task
 on:
   workflow_dispatch:
   schedule:
-    # Outside Daylight Saving Time (Last Sunday in October to Last Sunday in March)
-    - cron: '59 22 * * *'  # Runs at 22:59 UTC, which is 23:59 in Amsterdam outside DST
-    # During Daylight Saving Time (Last Sunday in March to Last Sunday in October)
-    # - cron: '59 21 * * *'  # Uncomment this line and comment out the above line during DST
+    - cron: "0 5 * * *"
 
 jobs:
   build-and-deploy:

@@ -434,7 +434,8 @@ const fetchData = async () => {
     const sleepDataSources = 'derived:com.google.sleep.segment:com.google.android.gms:merged';
 
     const endDate = new Date();
-    // endDate.setDate(endDate.getDate() - 1);
+    endDate.setDate(endDate.getDate() - 1);
+    endDate.setHours(23, 59, 59, 0);
     const startDate = new Date(START_DATE || Date.now());
     if (!START_DATE) {
         startDate.setDate(startDate.getDate() - (NUMBER_OF_DAYS + 1));
@@ -443,6 +444,8 @@ const fetchData = async () => {
     let startTimeNs = startDate.getTime() * 1000000;
     let endTimeNs = endDate.getTime() * 1000000;
     // console.log({ startTimeNs, endTimeNs });
+    // console.log(new Date(parseInt(endTimeNs, 10) / 1000000));
+    // console.log(new Date(parseInt(startTimeNs, 10) / 1000000));
 
     const weightData = await fetchDataForDataSource(weightDataSources, auth, startTimeNs, endTimeNs);
     const fatPercentageData = await fetchDataForDataSource(fatPercentageDataSources, auth, startTimeNs, endTimeNs);
