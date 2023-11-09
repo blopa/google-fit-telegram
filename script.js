@@ -434,8 +434,8 @@ const fetchData = async () => {
     const sleepDataSources = 'derived:com.google.sleep.segment:com.google.android.gms:merged';
 
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() - 1);
-    endDate.setHours(23, 59, 59, 0);
+    // endDate.setDate(endDate.getDate() - 1);
+    // endDate.setHours(23, 59, 59, 0);
     const startDate = new Date(START_DATE || Date.now());
     if (!START_DATE) {
         startDate.setDate(startDate.getDate() - (NUMBER_OF_DAYS + 1));
