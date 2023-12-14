@@ -28,4 +28,5 @@ jobs:
           TELEGRAM_GROUP_ID: ${{ secrets.TELEGRAM_GROUP_ID }}
           START_DATE: ${{ secrets.START_DATE }}
           NUMBER_OF_DAYS: ${{ secrets.NUMBER_OF_DAYS }}
+          MACROS_OFFSET: ${{ secrets.MACROS_OFFSET }}
           NODE_OPTIONS: "--max-old-space-size=8192"

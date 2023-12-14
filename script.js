@@ -8,6 +8,16 @@ const scopes = require('./scopes');
 const fitness = google.fitness('v1');
 const NUMBER_OF_DAYS = process.env.NUMBER_OF_DAYS || 30;
 const START_DATE = process.env.START_DATE || null;
+const MACROS_OFFSET = JSON.parse(
+    process.env.MACROS_OFFSET
+    || JSON.stringify({
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        calories: 0,
+        fiber: 0,
+    })
+);
 
 // https://www.google.com/books/edition/The_Nutritionist/olIsBgAAQBAJ?hl=en&gbpv=1&pg=PA148&printsec=frontcover
 // 1% other, 5% water, 8% protein, 86% fat.
@@ -257,12 +267,12 @@ function accumulateData(dataArray) {
     const firstOccurrence = dataArray[0];
 
     const accumulator = {
-        totalFat: 0,
+        totalFat: MACROS_OFFSET.fat,
         totalSteps: 0,
-        totalCarbs: 0,
-        totalFiber: 0,
-        totalProtein: 0,
-        totalCalories: 0,
+        totalCarbs: MACROS_OFFSET.carbs,
+        totalFiber: MACROS_OFFSET.fiber,
+        totalProtein: MACROS_OFFSET.protein,
+        totalCalories: MACROS_OFFSET.calories,
         totalSleptHours: 0,
         totalHeartMinutes: 0,
         totalSaturatedFat: 0,
