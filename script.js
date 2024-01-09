@@ -489,12 +489,17 @@ const fetchData = async () => {
         return new Date(`${year}-${month}-${day}`);
     }
 
+    const extractedNutritionData = extractNutritionData(nutritionData);
+    const aggregatedNutritionData = aggregateNutritionData(extractedNutritionData);
+
+    // writeFileSync('output/BLOPA_google_fit_nutri_data.json', JSON.stringify(extractedNutritionData, null, 2));
+
     const agragatedData = mergeDataArrays(
         extractBodyData(weightData, 'weight'),
         aggregateSleepData(extractSleepData(sleepData)),
         extractBodyData(fatPercentageData, 'fatPercentage'),
         aggregateData(extractIntegerData(stepsData, 'steps')),
-        aggregateNutritionData(extractNutritionData(nutritionData)),
+        aggregatedNutritionData,
         aggregateData(extractFloatingPointData(heartMinutesData, 'heartMinutes')),
         aggregateData(extractFloatingPointData(estimatedCaloriesExpendedData, 'estimatedCaloriesExpended'))
     )
