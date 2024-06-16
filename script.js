@@ -333,6 +333,39 @@ function calculateTDEE(totalCalories, muscleCalories, fatCalories, totalDays) {
     return (totalCalories - caloriesDifference) / totalDays;
 }
 
+function calculateWeeklyAverages(dataArray) {
+    const weeklyAverages = [];
+    let currentWeek = [];
+
+    dataArray.forEach((data, index) => {
+        currentWeek.push(data);
+
+        if (currentWeek.length === 7 || index === dataArray.length - 1) {
+            const totalWeight = currentWeek.reduce((sum, item) => sum + (item.weight || 0), 0);
+            const daysWithNoWeight = currentWeek.filter((item) => !item.weight).length;
+            const daysWithNoFatPercentage = currentWeek.filter((item) => !item.fatPercentage).length;
+
+            const totalFatPercentage = currentWeek.reduce((sum, item) => sum + (item.fatPercentage || 0), 0);
+            const averageWeight = totalWeight / (currentWeek.length - daysWithNoWeight);
+            const averageFatPercentage = totalFatPercentage / (currentWeek.length - daysWithNoFatPercentage);
+
+            const weekStartDate = currentWeek[0].date;
+            const weekEndDate = currentWeek[currentWeek.length - 1].date;
+
+            weeklyAverages.push({
+                weekStartDate,
+                weekEndDate,
+                averageWeight,
+                averageFatPercentage,
+            });
+
+            currentWeek = [];
+        }
+    });
+
+    return weeklyAverages;
+}
+
 function calculateStatistics(dataArray) {
     const totalDays = dataArray.length;
     const totalSleepDays = dataArray.filter((data) => data.sleptHours > 0).length;
@@ -368,21 +401,17 @@ function calculateStatistics(dataArray) {
     const { muscleCalories, fatCalories } = calculateMuscleAndFatCalories(muscleDifference, fatDifference);
     const tdee = calculateTDEE(totalCalories, muscleCalories, fatCalories, totalDays);
 
-    // console.log({
-    //     steps,
-    //     finalWeight,
-    //     initialWeight,
-    //     tdee,
-    //     totalCalories,
-    //     caloriesDifference,
-    //     totalDays,
-    //     fatCalories,
-    //     muscleCalories,
-    //     fatDifferencePercentage,
-    //     fatDifference,
-    //     muscleDifference,
-    //     weightDifference,
-    // });
+    const weeklyAverages = calculateWeeklyAverages(dataArray);
+    // const weeklyAveragesText = weeklyAverages.map(
+    //     ({ weekStartDate, weekEndDate, averageWeight, averageFatPercentage }) =>
+    //         `*Week from ${weekStartDate} to ${weekEndDate}*\n`
+    //         + `Average Weight: ${averageWeight.toFixed(2)} kg\n`
+    //         + `Average Fat Percentage: ${averageFatPercentage.toFixed(2)}%\n`
+    // ).join('\n');
+    const weeklyAveragesText = weeklyAverages.map(
+        ({ weekStartDate, weekEndDate, averageWeight, averageFatPercentage }, i) =>
+            `*Week ${i + 1}:* ${averageWeight.toFixed(2)} kg (${averageFatPercentage.toFixed(2)}%)`
+    ).join('\n');
 
     return [
         `*From ${initialDate} to ${finalDate}*`,
@@ -412,6 +441,8 @@ function calculateStatistics(dataArray) {
         `Eat ${(tdee - CALORIES_STORED_KG_FAT / 14)?.toFixed(2)} kcal per day to lose 500g of fat per week`,
         `Eat ${(tdee + CALORIES_BUILD_KG_MUSCLE / 14)?.toFixed(2)} kcal per day to gain 500g of muscle per week`,
         `Eat ${(tdee + (CALORIES_BUILD_KG_MUSCLE / 28) + (CALORIES_STORED_KG_FAT / 28))?.toFixed(2)} kcal per day to gain 250g of muscle and 250g of fat per week`,
+        '\n* - Weekly Averages - *',
+        weeklyAveragesText,
     ].join('\n');
 }
 
