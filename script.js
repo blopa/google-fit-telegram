@@ -408,9 +408,11 @@ function calculateStatistics(dataArray) {
     //         + `Average Weight: ${averageWeight.toFixed(2)} kg\n`
     //         + `Average Fat Percentage: ${averageFatPercentage.toFixed(2)}%\n`
     // ).join('\n');
+
     const weeklyAveragesText = weeklyAverages.map(
         ({ weekStartDate, weekEndDate, averageWeight, averageFatPercentage }, i) =>
-            `*Week ${i + 1}:* ${averageWeight.toFixed(2)} kg (${averageFatPercentage.toFixed(2)}%)`
+            // `*Week ${i + 1}:* ${averageWeight.toFixed(2)} kg (${averageFatPercentage.toFixed(2)}%)`
+            `*${weekStartDate.slice(0, -5)} to ${weekEndDate.slice(0, -5)}:* ${averageWeight.toFixed(2)} kg (${averageFatPercentage.toFixed(2)}%)`
     ).join('\n');
 
     return [
