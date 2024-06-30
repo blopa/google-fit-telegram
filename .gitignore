@@ -109,3 +109,5 @@ output/
 # IDE
 .idea
 .idea/*
+
+weight_fat_data.json
